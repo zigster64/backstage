@@ -5,7 +5,7 @@ const msg = @import("message.zig");
 
 const Engine = eng.Engine;
 const ActorInterface = act.ActorInterface;
-const Message = msg.Message;
+const MessageInterface = msg.MessageInterface;
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -15,14 +15,10 @@ pub fn main() !void {
     const candlestickActor = try CandlesticksActor.init(allocator);
     defer candlestickActor.deinit(allocator);
 
-    try engine.spawn("candlesticks", candlestickActor);
+    const testActor = ActorInterface.init(candlestickActor, CandlesticksActor.receive);
+    try engine.spawn("candlesticks", testActor);
 
-    engine.send("candlesticks", Message(Candlestick){ .data = Candlestick{
-        .open = 100.0,
-        .high = 100.0,
-        .low = 100.0,
-        .close = 100.0,
-    } });
+    engine.send("candlesticks");
 }
 
 const CandlesticksActor = struct {
@@ -41,8 +37,11 @@ const CandlesticksActor = struct {
         allocator.destroy(self);
     }
 
-    pub fn receive(self: *CandlesticksActor, message: Message(Candlestick)) void {
-        self.candlesticks.append(message.data) catch unreachable;
+    pub fn receive(_: *CandlesticksActor) void {
+        std.debug.print("Received message\n", .{});
+        // if (message.get(Candlestick)) |candlestick| {
+        //     self.candlesticks.append(candlestick) catch unreachable;
+        // }
     }
 };
 

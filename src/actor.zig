@@ -1,39 +1,34 @@
 const std = @import("std");
+const assert = std.debug.assert;
+const msg = @import("message.zig");
 
-const Allocator = std.mem.Allocator;
+const MessageInterface = msg.MessageInterface;
 
 pub const ActorInterface = struct {
     ptr: *anyopaque,
-    vtable: *const VTable,
+    receiveFnPtr: *const fn (ptr: *anyopaque) void,
 
-    pub const VTable = struct {
-        // Add your required function pointers here
-        // For example:
-        receive: *const fn (ptr: *anyopaque, message: anytype) void,
-        // Add more required methods as needed
-    };
-
-    pub fn init(actor: *anyopaque) ActorInterface {
-        const T = @TypeOf(actor);
-
-        const actor_ptr = actor;
-        const vtable = comptime &VTable{
-            .receive = struct {
-                fn receive(ptr: *anyopaque, message: anytype) void {
-                    const self = @as(*T, @ptrCast(@alignCast(ptr)));
-                    self.receive(message);
-                }
-            }.receive,
-            // Initialize other vtable functions similarly
+    pub fn init(
+        obj: anytype,
+        comptime receiveFn: fn (ptr: @TypeOf(obj)) void,
+    ) ActorInterface {
+        const T = @TypeOf(obj);
+        const impl = struct {
+            fn receive(ptr: *anyopaque) void {
+                const self = @as(T, @ptrCast(@alignCast(ptr)));
+                receiveFn(self);
+            }
         };
 
         return .{
-            .ptr = @ptrCast(actor_ptr),
-            .vtable = vtable,
+            .ptr = obj,
+            .receiveFnPtr = impl.receive,
         };
     }
 
-    pub fn receive(self: ActorInterface, message: anytype) void {
-        self.vtable.receive(self.ptr, message);
+    pub fn receive(self: ActorInterface) void {
+        self.receiveFnPtr(
+            self.ptr,
+        );
     }
 };

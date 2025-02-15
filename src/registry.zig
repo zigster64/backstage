@@ -2,15 +2,15 @@ const std = @import("std");
 const act = @import("actor.zig");
 
 const ActorInterface = act.ActorInterface;
-const AutoHashMap = std.AutoHashMap;
+const StringHashMap = std.StringHashMap;
 
 pub const Registry = struct {
-    actors: AutoHashMap([]const u8, ActorInterface),
+    actors: StringHashMap(ActorInterface),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Registry {
         return .{
-            .actors = AutoHashMap([]const u8, ActorInterface).init(allocator),
+            .actors = StringHashMap(ActorInterface).init(allocator),
             .allocator = allocator,
         };
     }
@@ -19,12 +19,11 @@ pub const Registry = struct {
         self.actors.deinit();
     }
 
-    pub fn get(self: *Registry, id: []const u8) ?*ActorInterface {
+    pub fn get(self: *Registry, id: []const u8) ?ActorInterface {
         return self.actors.get(id);
     }
 
-    pub fn add(self: *Registry, id: []const u8, actor: *anyopaque) !void {
-        const interface = ActorInterface.init(actor);
-        try self.actors.put(id, interface);
+    pub fn add(self: *Registry, id: []const u8, actor: ActorInterface) !void {
+        try self.actors.put(id, actor);
     }
 };
