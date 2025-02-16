@@ -6,7 +6,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
-const MessageInterface = msg.MessageInterface;
+// const MessageInterface = msg.MessageInterface;
 
 pub const Engine = struct {
     Registry: Registry,
@@ -23,9 +23,6 @@ pub const Engine = struct {
         self.Registry.deinit();
     }
 
-    pub fn spawn(self: *Engine, id: []const u8, a: ActorInterface) !void {
-        try self.Registry.add(id, a);
-    }
     pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, id: []const u8, allocator: std.mem.Allocator) !void {
         const actorInstance = try ActorType.init(allocator);
         const wrapper = act.makeReceiveWrapper(ActorType, MsgType);
@@ -40,10 +37,10 @@ pub const Engine = struct {
         }
     }
 
-    pub fn request(self: *Engine, id: []const u8, message: MessageInterface) void {
-        const actor = self.Registry.get(id);
-        if (actor) |a| {
-            a.receive(message);
-        }
-    }
+    // pub fn request(self: *Engine, id: []const u8, message: MessageInterface) void {
+    //     const actor = self.Registry.get(id);
+    //     if (actor) |a| {
+    //         a.receive(message);
+    //     }
+    // }
 };

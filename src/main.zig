@@ -12,16 +12,15 @@ pub fn main() !void {
 
     var engine = Engine.init(allocator);
 
-    const candlestickActor = try CandlesticksActor.init(allocator);
-    defer candlestickActor.deinit(allocator);
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
 
-    // const testActor = ActorInterface.init(candlestickActor, receiveWrapper);
-
-    try engine.spawnActor(CandlesticksActor, Candlestick, "candlesticks", allocator);
-
-    engine.send("candlesticks", &Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 });
+    engine.send("candlesticks", &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    engine.send("candlesticks", &CandlesticksMessage{ .test_msg = TestMessage{ .example = "test" } });
 }
+// TODO: Actors should register themselves with the engine. When doing so they should provide what sort of messages they are interested in.
+// The engine will then only send messages of the correct type to the actor.
 
+// This is an example of a simple actor that receives messages and processes them.
 pub const CandlesticksActor = struct {
     candlesticks: std.ArrayList(Candlestick),
 
@@ -38,12 +37,22 @@ pub const CandlesticksActor = struct {
         allocator.destroy(self);
     }
 
-    /// The concrete receive function.
-    /// Note: It expects a *Candlestick, not a *anyopaque.
-    pub fn receive(_: *CandlesticksActor, message: *const Candlestick) void {
-        std.debug.print("Received Candlestick:\n  open: {}\n  high: {}\n  low: {}\n  close: {}\n", .{ message.open, message.high, message.low, message.close });
-        // (For example, you could append the candlestick to a list here.)
+    pub fn receive(_: *CandlesticksActor, message: *const CandlesticksMessage) void {
+        switch (message.*) {
+            .candlestick => |candlestick| {
+                std.debug.print("Received Candlestick:\n  open: {}\n  high: {}\n  low: {}\n  close: {}\n", .{ candlestick.open, candlestick.high, candlestick.low, candlestick.close });
+            },
+            .test_msg => |test_msg| {
+                std.debug.print("Received Test Message:\n  example: {s}\n", .{test_msg.example});
+            },
+        }
     }
+};
+
+// This is an example of a message that can be sent to the CandlesticksActor.
+pub const CandlesticksMessage = union(enum) {
+    candlestick: Candlestick,
+    test_msg: TestMessage,
 };
 
 const Candlestick = struct {
@@ -51,4 +60,8 @@ const Candlestick = struct {
     high: f64,
     low: f64,
     close: f64,
+};
+
+const TestMessage = struct {
+    example: []const u8,
 };
