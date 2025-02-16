@@ -26,6 +26,12 @@ pub const Engine = struct {
     pub fn spawn(self: *Engine, id: []const u8, a: ActorInterface) !void {
         try self.Registry.add(id, a);
     }
+    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, id: []const u8, allocator: std.mem.Allocator) !void {
+        const actorInstance = try ActorType.init(allocator);
+        const wrapper = act.makeReceiveWrapper(ActorType, MsgType);
+        const iface = ActorInterface.init(actorInstance, wrapper);
+        try self.Registry.add(id, iface);
+    }
 
     pub fn send(self: *Engine, id: []const u8, message: *const anyopaque) void {
         const actor = self.Registry.get(id);

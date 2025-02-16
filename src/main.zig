@@ -15,10 +15,9 @@ pub fn main() !void {
     const candlestickActor = try CandlesticksActor.init(allocator);
     defer candlestickActor.deinit(allocator);
 
-    // const testActor = ActorInterface.init(candlestickActor, CandlesticksActor.receive);
-    const testActor = ActorInterface.init(candlestickActor, candlesticksActorReceiveWrapper);
+    // const testActor = ActorInterface.init(candlestickActor, receiveWrapper);
 
-    try engine.spawn("candlesticks", testActor);
+    try engine.spawnActor(CandlesticksActor, Candlestick, "candlesticks", allocator);
 
     engine.send("candlesticks", &Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 });
 }
@@ -46,13 +45,6 @@ pub const CandlesticksActor = struct {
         // (For example, you could append the candlestick to a list here.)
     }
 };
-
-fn candlesticksActorReceiveWrapper(actor: *CandlesticksActor, message: *const anyopaque) void {
-    const castMsg = @as(*const Candlestick, @ptrCast(@alignCast(message)));
-
-    // const castMsg = @ptrCast(*Candlestick, message);
-    CandlesticksActor.receive(actor, castMsg);
-}
 
 const Candlestick = struct {
     open: f64,

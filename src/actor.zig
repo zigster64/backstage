@@ -4,6 +4,19 @@ const assert = std.debug.assert;
 
 // const MessageInterface = msg.MessageInterface;
 
+
+pub fn makeReceiveWrapper(
+    comptime ActorType: type,
+    comptime MsgType: type,
+) fn (actor: *ActorType, message: *const anyopaque) void {
+    return struct {
+        fn receive(actor: *ActorType, message: *const anyopaque) void {
+            const castMsg = @as(*const MsgType, @ptrCast(@alignCast(message)));
+            ActorType.receive(actor, castMsg);
+        }
+    }.receive;
+}
+
 pub const ActorInterface = struct {
     ptr: *anyopaque,
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
