@@ -1,22 +1,22 @@
 const std = @import("std");
 const assert = std.debug.assert;
-const msg = @import("message.zig");
+// const msg = @import("message.zig");
 
-const MessageInterface = msg.MessageInterface;
+// const MessageInterface = msg.MessageInterface;
 
 pub const ActorInterface = struct {
     ptr: *anyopaque,
-    receiveFnPtr: *const fn (ptr: *anyopaque) void,
+    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
 
     pub fn init(
         obj: anytype,
-        comptime receiveFn: fn (ptr: @TypeOf(obj)) void,
+        comptime receiveFn: fn (ptr: @TypeOf(obj), msg: *const anyopaque) void,
     ) ActorInterface {
         const T = @TypeOf(obj);
         const impl = struct {
-            fn receive(ptr: *anyopaque) void {
+            fn receive(ptr: *anyopaque, msg: *const anyopaque) void {
                 const self = @as(T, @ptrCast(@alignCast(ptr)));
-                receiveFn(self);
+                receiveFn(self, msg);
             }
         };
 
@@ -26,9 +26,10 @@ pub const ActorInterface = struct {
         };
     }
 
-    pub fn receive(self: ActorInterface) void {
+    pub fn receive(self: ActorInterface, msg: *const anyopaque) void {
         self.receiveFnPtr(
             self.ptr,
+            msg,
         );
     }
 };

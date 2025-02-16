@@ -27,10 +27,10 @@ pub const Engine = struct {
         try self.Registry.add(id, a);
     }
 
-    pub fn send(self: *Engine, id: []const u8) void {
+    pub fn send(self: *Engine, id: []const u8, message: *const anyopaque) void {
         const actor = self.Registry.get(id);
         if (actor) |a| {
-            a.receive();
+            a.receive(message);
         }
     }
 

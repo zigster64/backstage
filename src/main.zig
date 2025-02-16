@@ -15,13 +15,15 @@ pub fn main() !void {
     const candlestickActor = try CandlesticksActor.init(allocator);
     defer candlestickActor.deinit(allocator);
 
-    const testActor = ActorInterface.init(candlestickActor, CandlesticksActor.receive);
+    // const testActor = ActorInterface.init(candlestickActor, CandlesticksActor.receive);
+    const testActor = ActorInterface.init(candlestickActor, candlesticksActorReceiveWrapper);
+
     try engine.spawn("candlesticks", testActor);
 
-    engine.send("candlesticks");
+    engine.send("candlesticks", &Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 });
 }
 
-const CandlesticksActor = struct {
+pub const CandlesticksActor = struct {
     candlesticks: std.ArrayList(Candlestick),
 
     pub fn init(allocator: std.mem.Allocator) !*CandlesticksActor {
@@ -37,13 +39,20 @@ const CandlesticksActor = struct {
         allocator.destroy(self);
     }
 
-    pub fn receive(_: *CandlesticksActor) void {
-        std.debug.print("Received message\n", .{});
-        // if (message.get(Candlestick)) |candlestick| {
-        //     self.candlesticks.append(candlestick) catch unreachable;
-        // }
+    /// The concrete receive function.
+    /// Note: It expects a *Candlestick, not a *anyopaque.
+    pub fn receive(_: *CandlesticksActor, message: *const Candlestick) void {
+        std.debug.print("Received Candlestick:\n  open: {}\n  high: {}\n  low: {}\n  close: {}\n", .{ message.open, message.high, message.low, message.close });
+        // (For example, you could append the candlestick to a list here.)
     }
 };
+
+fn candlesticksActorReceiveWrapper(actor: *CandlesticksActor, message: *const anyopaque) void {
+    const castMsg = @as(*const Candlestick, @ptrCast(@alignCast(message)));
+
+    // const castMsg = @ptrCast(*Candlestick, message);
+    CandlesticksActor.receive(actor, castMsg);
+}
 
 const Candlestick = struct {
     open: f64,
