@@ -24,3 +24,25 @@ pub fn getTypeNames(comptime T: type) [if (@typeInfo(T) == .@"struct") 1 else @t
         else => @compileError("Type must be a struct or union"),
     };
 }
+
+pub fn getActiveTypeName(comptime T: type, message: *const T) []const u8 {
+    const type_info = @typeInfo(T);
+    return switch (type_info) {
+        .@"struct" => {
+            return @typeName(T);
+        },
+        .@"union" => {
+            const active_tag = std.meta.activeTag(message.*);
+            const TagType = @TypeOf(active_tag);
+
+            inline for (std.meta.fields(TagType)) |field| {
+                if (active_tag == @field(TagType, field.name)) {
+                    const PayloadType = std.meta.TagPayloadByName(T, field.name);
+                    return @typeName(PayloadType);
+                }
+            }
+            return "";
+        },
+        else => @compileError("Type must be a struct or union"),
+    };
+}

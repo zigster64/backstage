@@ -25,14 +25,12 @@ pub const Engine = struct {
     }
 
     pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, id: []const u8, allocator: std.mem.Allocator) !void {
-        const actorInstance = try ActorType.init(allocator);
-        const wrapper = act.makeReceiveWrapper(ActorType, MsgType);
-        const actorInterface = ActorInterface.init(actorInstance, wrapper);
+        const actor_instance = try ActorType.init(allocator);
+        const receiveFn = act.makeReceiveFn(ActorType, MsgType);
+        const actor_interface = ActorInterface.init(actor_instance, receiveFn);
 
-        const messageTypeNames = type_utils.getTypeNames(MsgType);
-        std.debug.print("typeNames: {s}\n", .{messageTypeNames});
-
-        try self.Registry.add(id, &messageTypeNames, actorInterface);
+        const message_type_names = type_utils.getTypeNames(MsgType);
+        try self.Registry.add(id, &message_type_names, actor_interface);
     }
 
     pub fn send(self: *Engine, comptime MsgType: type, id: []const u8, message: *const MsgType) void {
@@ -42,19 +40,11 @@ pub const Engine = struct {
         }
     }
     pub fn broadcast(self: *Engine, comptime MsgType: type, message: *const MsgType) void {
-        // TODO Move this to generic place
-        const active_tag = std.meta.activeTag(message.*);
-        const TagType = @TypeOf(active_tag);
-        
-        inline for (std.meta.fields(TagType)) |field| {
-            if (active_tag == @field(TagType, field.name)) {
-                const PayloadType = std.meta.TagPayloadByName(MsgType, field.name);
-                const actor = self.Registry.getByMessageType(@typeName(PayloadType));
-                if (actor) |a| {
-                    a.receive(message);
-                }
-                break;
-            }
+        const active_type_name = type_utils.getActiveTypeName(MsgType, message);
+        std.debug.print("active_type_name: {s}\n", .{active_type_name});
+        const actor = self.Registry.getByMessageType(active_type_name);
+        if (actor) |a| {
+            a.receive(message);
         }
     }
 
