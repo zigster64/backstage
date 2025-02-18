@@ -1,9 +1,5 @@
 const std = @import("std");
 const assert = std.debug.assert;
-// const msg = @import("message.zig");
-
-// const MessageInterface = msg.MessageInterface;
-
 
 pub const ActorInterface = struct {
     ptr: *anyopaque,
