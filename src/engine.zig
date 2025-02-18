@@ -41,7 +41,6 @@ pub const Engine = struct {
     }
     pub fn broadcast(self: *Engine, comptime MsgType: type, message: *const MsgType) void {
         const active_type_name = type_utils.getActiveTypeName(MsgType, message);
-        std.debug.print("active_type_name: {s}\n", .{active_type_name});
         const actor = self.Registry.getByMessageType(active_type_name);
         if (actor) |a| {
             a.receive(message);
