@@ -1,6 +1,7 @@
 const std = @import("std");
 const alphazig = @import("alphazig");
 const common = @import("./common_types.zig");
+const testing = std.testing;
 
 const Engine = alphazig.Engine;
 const CandlesticksActor = common.CandlesticksActor;
@@ -17,10 +18,64 @@ pub fn main() !void {
 
     try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
 
-    // Able to send and receive the message the actor is listening for
+    // Able to send the message the actor is listening for
     engine.send(CandlesticksMessage, "candlesticks", &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    // Able to send and receive the message part of a union that the actor is not listening for
+    // Able to send the message part of a union that the actor is not listening for
     engine.send(OtherUnionMessage, "candlesticks", &OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    // Able to send and receive message with a type that is not a union
+    // Able to send message with
     engine.send(Candlestick, "candlesticks", &Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 });
+}
+
+test "send - can send CandlesticksMessage to actor" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var engine = Engine.init(allocator);
+    defer engine.deinit();
+
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+
+    const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
+    engine.send(CandlesticksMessage, "candlesticks", &message);
+}
+
+test "send - can send OtherUnionMessage to actor" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var engine = Engine.init(allocator);
+    defer engine.deinit();
+
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+
+    const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
+    engine.send(OtherUnionMessage, "candlesticks", &message);
+}
+
+test "send - can send non-union message to actor" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var engine = Engine.init(allocator);
+    defer engine.deinit();
+
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+
+    const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
+    engine.send(Candlestick, "candlesticks", &message);
+}
+
+test "send - sending to non-existent actor is handled gracefully" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var engine = Engine.init(allocator);
+    defer engine.deinit();
+
+    const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
+    engine.send(CandlesticksMessage, "non-existent", &message);
 }
