@@ -14,8 +14,9 @@ pub fn main() !void {
 
     try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
 
-    engine.send("candlesticks", &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    engine.send("candlesticks", &CandlesticksMessage{ .test_msg = TestMessage{ .example = "test" } });
+    engine.broadcast(CandlesticksMessage, &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    // engine.send(CandlesticksMessage, "candlesticks", &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    // engine.send(WrongMessage, "candlesticks", &WrongMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
 }
 // TODO: Actors should register themselves with the engine. When doing so they should provide what sort of messages they are interested in.
 // The engine will then only send messages of the correct type to the actor.
@@ -63,5 +64,15 @@ const Candlestick = struct {
 };
 
 const TestMessage = struct {
+    example: []const u8,
+};
+
+// This is an example of an unspecific union being able to be sent to the CandlesticksActor.
+pub const WrongMessage = union(enum) {
+    candlestick: Candlestick,
+    test_msg: WrongTestMessage,
+};
+
+const WrongTestMessage = struct {
     example: []const u8,
 };

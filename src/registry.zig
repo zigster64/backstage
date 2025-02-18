@@ -5,25 +5,34 @@ const ActorInterface = act.ActorInterface;
 const StringHashMap = std.StringHashMap;
 
 pub const Registry = struct {
-    actors: StringHashMap(ActorInterface),
+    actorsIDMap: StringHashMap(ActorInterface),
+    actorsMessageTypeMap: StringHashMap(ActorInterface),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Registry {
         return .{
-            .actors = StringHashMap(ActorInterface).init(allocator),
+            .actorsIDMap = StringHashMap(ActorInterface).init(allocator),
+            .actorsMessageTypeMap = StringHashMap(ActorInterface).init(allocator),
             .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Registry) void {
-        self.actors.deinit();
+        self.actorsIDMap.deinit();
     }
 
-    pub fn get(self: *Registry, id: []const u8) ?ActorInterface {
-        return self.actors.get(id);
+    pub fn getByID(self: *Registry, id: []const u8) ?ActorInterface {
+        return self.actorsIDMap.get(id);
     }
 
-    pub fn add(self: *Registry, id: []const u8, actor: ActorInterface) !void {
-        try self.actors.put(id, actor);
+    pub fn getByMessageType(self: *Registry, messageType: []const u8) ?ActorInterface {
+        return self.actorsMessageTypeMap.get(messageType);
+    }
+
+    pub fn add(self: *Registry, id: []const u8, listenToMessageTypes: []const []const u8, actor: ActorInterface) !void {
+        try self.actorsIDMap.put(id, actor);
+        for (listenToMessageTypes) |messageType| {
+            try self.actorsMessageTypeMap.put(messageType, actor);
+        }
     }
 };
