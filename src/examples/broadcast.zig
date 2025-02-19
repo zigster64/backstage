@@ -18,7 +18,8 @@ pub fn main() !void {
 
     try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
-    engine.broadcast(CandlesticksMessage, &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
+    engine.broadcast(message);
 }
 
 test "broadcast - can send CandlesticksMessage to actor" {
@@ -32,7 +33,7 @@ test "broadcast - can send CandlesticksMessage to actor" {
     try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(CandlesticksMessage, &message);
+    engine.broadcast(message);
 }
 
 test "broadcast - can broadcast OtherUnionMessage to actor" {
@@ -46,7 +47,7 @@ test "broadcast - can broadcast OtherUnionMessage to actor" {
     try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(OtherUnionMessage, &message);
+    engine.broadcast(message);
 }
 
 test "broadcast - can broadcast non-union message to actor" {
@@ -60,7 +61,7 @@ test "broadcast - can broadcast non-union message to actor" {
     try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
-    engine.broadcast(Candlestick, &message);
+    engine.broadcast(message);
 }
 
 test "broadcast - broadcasting with no actors is handled gracefully" {
@@ -72,5 +73,5 @@ test "broadcast - broadcasting with no actors is handled gracefully" {
     defer engine.deinit();
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(CandlesticksMessage, &message);
+    engine.broadcast(message);
 }

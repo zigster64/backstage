@@ -33,17 +33,17 @@ pub const Engine = struct {
         try self.Registry.add(id, &message_type_names, actor_interface);
     }
 
-    pub fn send(self: *Engine, comptime MsgType: type, id: []const u8, message: *const MsgType) void {
+    pub fn send(self: *Engine, id: []const u8, message: anytype) void {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
-            a.receive(message);
+            a.receive(&message);
         }
     }
-    pub fn broadcast(self: *Engine, comptime MsgType: type, message: *const MsgType) void {
-        const active_type_name = type_utils.getActiveTypeName(MsgType, message);
+    pub fn broadcast(self: *Engine, message: anytype) void {
+        const active_type_name = type_utils.getActiveTypeName(message);
         const actor = self.Registry.getByMessageType(active_type_name);
         if (actor) |a| {
-            a.receive(message);
+            a.receive(&message);
         }
     }
 

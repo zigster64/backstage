@@ -25,14 +25,15 @@ pub fn getTypeNames(comptime T: type) [if (@typeInfo(T) == .@"struct") 1 else @t
     };
 }
 
-pub fn getActiveTypeName(comptime T: type, message: *const T) []const u8 {
+pub fn getActiveTypeName(message: anytype) []const u8 {
+    const T = @TypeOf(message);
     const type_info = @typeInfo(T);
     return switch (type_info) {
         .@"struct" => {
             return @typeName(T);
         },
         .@"union" => {
-            const active_tag = std.meta.activeTag(message.*);
+            const active_tag = std.meta.activeTag(message);
             const TagType = @TypeOf(active_tag);
 
             inline for (std.meta.fields(TagType)) |field| {
