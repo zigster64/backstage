@@ -6,9 +6,9 @@ const Allocator = std.mem.Allocator;
 pub const Inbox = struct {
     ring_buffer: RingBuffer,
     
-    pub fn init(allocator: Allocator) !Inbox {
+    pub fn init(allocator: Allocator, capacity: usize) !Inbox {
         return .{
-            .ring_buffer = try RingBuffer.init(allocator, 1024),
+            .ring_buffer = try RingBuffer.init(allocator, capacity),
         };
     }
 

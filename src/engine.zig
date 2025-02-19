@@ -7,7 +7,11 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
-// const MessageInterface = msg.MessageInterface;
+
+const SpawnActorOptions = struct {
+    id: []const u8,
+    capacity: usize = 1024,
+};
 
 pub const Engine = struct {
     Registry: Registry,
@@ -24,13 +28,13 @@ pub const Engine = struct {
         self.Registry.deinit();
     }
 
-    pub fn spawnActor(self: *Engine, allocator: std.mem.Allocator, comptime ActorType: type, comptime MsgType: type, id: []const u8) !void {
+    pub fn spawnActor(self: *Engine, allocator: std.mem.Allocator, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !void {
         const actor_instance = try ActorType.init(allocator);
         const receiveFn = act.makeReceiveFn(ActorType, MsgType);
-        const actor_interface = try ActorInterface.init(allocator, actor_instance, receiveFn);
+        const actor_interface = try ActorInterface.init(allocator, actor_instance, options.capacity, receiveFn);
 
         const message_type_names = type_utils.getTypeNames(MsgType);
-        try self.Registry.add(id, &message_type_names, actor_interface);
+        try self.Registry.add(options.id, &message_type_names, actor_interface);
     }
 
     pub fn send(self: *Engine, id: []const u8, message: anytype) void {

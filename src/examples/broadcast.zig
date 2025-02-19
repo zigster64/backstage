@@ -16,7 +16,9 @@ pub fn main() !void {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+        .id = "candlesticks",
+    });
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     engine.broadcast(message);
@@ -30,7 +32,9 @@ test "broadcast - can send CandlesticksMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+        .id = "candlesticks",
+    });
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     engine.broadcast(message);
@@ -44,7 +48,9 @@ test "broadcast - can broadcast OtherUnionMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+        .id = "candlesticks",
+    });
 
     const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     engine.broadcast(message);
@@ -58,7 +64,9 @@ test "broadcast - can broadcast non-union message to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+        .id = "candlesticks",
+    });
 
     const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
     engine.broadcast(message);

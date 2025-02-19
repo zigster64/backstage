@@ -12,6 +12,7 @@ pub const ActorInterface = struct {
     pub fn init(
         allocator: std.mem.Allocator,
         obj: anytype,
+        capacity: usize,
         comptime receiveFn: fn (ptr: @TypeOf(obj), msg: *const anyopaque) void,
     ) !ActorInterface {
         const T = @TypeOf(obj);
@@ -25,7 +26,7 @@ pub const ActorInterface = struct {
         return .{
             .ptr = obj,
             .receiveFnPtr = impl.receive,
-            .inbox = try Inbox.init(allocator),
+            .inbox = try Inbox.init(allocator, capacity),
         };
     }
 
