@@ -24,10 +24,10 @@ pub const Engine = struct {
         self.Registry.deinit();
     }
 
-    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, id: []const u8, allocator: std.mem.Allocator) !void {
+    pub fn spawnActor(self: *Engine, allocator: std.mem.Allocator, comptime ActorType: type, comptime MsgType: type, id: []const u8) !void {
         const actor_instance = try ActorType.init(allocator);
         const receiveFn = act.makeReceiveFn(ActorType, MsgType);
-        const actor_interface = ActorInterface.init(actor_instance, receiveFn);
+        const actor_interface = try ActorInterface.init(allocator, actor_instance, receiveFn);
 
         const message_type_names = type_utils.getTypeNames(MsgType);
         try self.Registry.add(id, &message_type_names, actor_interface);

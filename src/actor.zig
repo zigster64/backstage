@@ -1,14 +1,19 @@
 const std = @import("std");
-const assert = std.debug.assert;
+const inbox = @import("inbox.zig");
 
+const assert = std.debug.assert;
+const Inbox = inbox.Inbox;
 pub const ActorInterface = struct {
     ptr: *anyopaque,
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
 
+    inbox: Inbox,
+
     pub fn init(
+        allocator: std.mem.Allocator,
         obj: anytype,
         comptime receiveFn: fn (ptr: @TypeOf(obj), msg: *const anyopaque) void,
-    ) ActorInterface {
+    ) !ActorInterface {
         const T = @TypeOf(obj);
         const impl = struct {
             fn receive(ptr: *anyopaque, msg: *const anyopaque) void {
@@ -20,6 +25,7 @@ pub const ActorInterface = struct {
         return .{
             .ptr = obj,
             .receiveFnPtr = impl.receive,
+            .inbox = try Inbox.init(allocator),
         };
     }
 

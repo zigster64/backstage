@@ -16,7 +16,7 @@ pub fn main() !void {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     // Able to send the message the actor is listening for
     engine.send(CandlesticksMessage, "candlesticks", &CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
@@ -34,7 +34,7 @@ test "send - can send CandlesticksMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     engine.send(CandlesticksMessage, "candlesticks", &message);
@@ -48,7 +48,7 @@ test "send - can send OtherUnionMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     engine.send(OtherUnionMessage, "candlesticks", &message);
@@ -62,7 +62,7 @@ test "send - can send non-union message to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, "candlesticks", allocator);
+    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, "candlesticks");
 
     const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
     engine.send(Candlestick, "candlesticks", &message);

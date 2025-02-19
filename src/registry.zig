@@ -7,18 +7,17 @@ const StringHashMap = std.StringHashMap;
 pub const Registry = struct {
     actorsIDMap: StringHashMap(ActorInterface),
     actorsMessageTypeMap: StringHashMap(ActorInterface),
-    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Registry {
         return .{
             .actorsIDMap = StringHashMap(ActorInterface).init(allocator),
             .actorsMessageTypeMap = StringHashMap(ActorInterface).init(allocator),
-            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Registry) void {
         self.actorsIDMap.deinit();
+        self.actorsMessageTypeMap.deinit();
     }
 
     pub fn getByID(self: *Registry, id: []const u8) ?ActorInterface {
