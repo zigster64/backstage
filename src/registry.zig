@@ -24,6 +24,7 @@ pub const Registry = struct {
         return self.actorsIDMap.get(id);
     }
 
+    // TODO This obviously needs to return a slice of actors
     pub fn getByMessageType(self: *Registry, messageType: []const u8) ?ActorInterface {
         return self.actorsMessageTypeMap.get(messageType);
     }

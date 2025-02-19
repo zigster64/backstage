@@ -3,11 +3,12 @@ const inbox = @import("inbox.zig");
 
 const assert = std.debug.assert;
 const Inbox = inbox.Inbox;
+
 pub const ActorInterface = struct {
     ptr: *anyopaque,
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
 
-    inbox: Inbox,
+    inbox: *Inbox,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -30,7 +31,17 @@ pub const ActorInterface = struct {
         };
     }
 
-    pub fn receive(self: ActorInterface, msg: *const anyopaque) void {
+    // pub fn receive(self: ActorInterface, msg: *const anyopaque) void {
+    //     self.inbox.receive(msg);
+    //     self.receiveFnPtr(
+    //         self.ptr,
+    //         msg,
+    //     );
+    // }
+    pub fn receive(self: ActorInterface) void {
+        // TODO This is incorrect
+        var msg: *const anyopaque = undefined;
+        _ = self.inbox.receive(&msg);
         self.receiveFnPtr(
             self.ptr,
             msg,

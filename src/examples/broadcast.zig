@@ -21,7 +21,7 @@ pub fn main() !void {
     });
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(message);
+    try engine.broadcast(message);
 }
 
 test "broadcast - can send CandlesticksMessage to actor" {
@@ -37,7 +37,7 @@ test "broadcast - can send CandlesticksMessage to actor" {
     });
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(message);
+    try engine.broadcast(message);
 }
 
 test "broadcast - can broadcast OtherUnionMessage to actor" {
@@ -53,7 +53,7 @@ test "broadcast - can broadcast OtherUnionMessage to actor" {
     });
 
     const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(message);
+    try engine.broadcast(message);
 }
 
 test "broadcast - can broadcast non-union message to actor" {
@@ -69,7 +69,7 @@ test "broadcast - can broadcast non-union message to actor" {
     });
 
     const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
-    engine.broadcast(message);
+    try engine.broadcast(message);
 }
 
 test "broadcast - broadcasting with no actors is handled gracefully" {
@@ -81,5 +81,5 @@ test "broadcast - broadcasting with no actors is handled gracefully" {
     defer engine.deinit();
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.broadcast(message);
+    try engine.broadcast(message);
 }

@@ -41,7 +41,7 @@ test "send - can send CandlesticksMessage to actor" {
     });
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.send("candlesticks", message);
+    try engine.send("candlesticks", message);
 }
 
 test "send - can send OtherUnionMessage to actor" {
@@ -57,7 +57,7 @@ test "send - can send OtherUnionMessage to actor" {
     });
 
     const message = OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.send("candlesticks", message);
+    try engine.send("candlesticks", message);
 }
 
 test "send - can send non-union message to actor" {
@@ -73,7 +73,7 @@ test "send - can send non-union message to actor" {
     });
 
     const message = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 };
-    engine.send("candlesticks", message);
+    try engine.send("candlesticks", message);
 }
 
 test "send - sending to non-existent actor is handled gracefully" {
@@ -85,5 +85,5 @@ test "send - sending to non-existent actor is handled gracefully" {
     defer engine.deinit();
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
-    engine.send("non-existent", message);
+    try engine.send("non-existent", message);
 }
