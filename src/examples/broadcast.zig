@@ -16,7 +16,7 @@ pub fn main() !void {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
 
@@ -32,7 +32,7 @@ test "broadcast - can send CandlesticksMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
 
@@ -48,7 +48,7 @@ test "broadcast - can broadcast OtherUnionMessage to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
 
@@ -64,7 +64,7 @@ test "broadcast - can broadcast non-union message to actor" {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    try engine.spawnActor(allocator, CandlesticksActor, CandlesticksMessage, .{
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
 
