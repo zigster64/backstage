@@ -1,32 +1,37 @@
 const std = @import("std");
 
+const LinearFifo = std.fifo.LinearFifo;
 const RingBuffer = std.RingBuffer;
 const Allocator = std.mem.Allocator;
 
 pub const Inbox = struct {
-    ring_buffer: RingBuffer,
+    fifo: LinearFifo(u8, .Dynamic),
 
     pub fn init(allocator: Allocator, capacity: usize) !*Inbox {
         const inbox = try allocator.create(Inbox);
-        inbox.ring_buffer = try RingBuffer.init(allocator, capacity);
+        inbox.fifo = LinearFifo(u8, .Dynamic).init(allocator);
+        try inbox.fifo.ensureTotalCapacity(capacity);
         return inbox;
     }
 
     pub fn deinit(self: *Inbox) void {
-        self.ring_buffer.deinit();
+        self.fifo.deinit();
     }
 
     pub fn send(self: *Inbox, message: anytype) !void {
         const bytes = std.mem.asBytes(&message);
-        try self.ring_buffer.writeSlice(bytes);
+        try self.fifo.write(bytes);
     }
 
-    // TODO Make this like Golang does it, this is currently incorrect
     pub fn receive(self: *Inbox, value: anytype) bool {
-        if (self.ring_buffer.read()) |byte| {
-            value.* = byte;
-            return true;
+        const value_size = @sizeOf(@TypeOf(value.*));
+        if (self.fifo.readableLength() < value_size) {
+            return false;
         }
-        return false;
+
+        const bytes = self.fifo.readableSlice(0)[0..value_size];
+        @memcpy(std.mem.asBytes(value), bytes);
+        _ = self.fifo.discard(value_size);
+        return true;
     }
 };
