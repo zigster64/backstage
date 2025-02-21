@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const LinearFifo = std.fifo.LinearFifo;
-const RingBuffer = std.RingBuffer;
 const Allocator = std.mem.Allocator;
 
 pub const Inbox = struct {
@@ -11,6 +10,7 @@ pub const Inbox = struct {
         const inbox = try allocator.create(Inbox);
         inbox.fifo = LinearFifo(u8, .Dynamic).init(allocator);
         try inbox.fifo.ensureTotalCapacity(capacity);
+        inbox.fifo.shrink(capacity);
         return inbox;
     }
 
@@ -20,16 +20,26 @@ pub const Inbox = struct {
 
     pub fn send(self: *Inbox, message: anytype) !void {
         const bytes = std.mem.asBytes(&message);
+        if (self.fifo.writableLength() < bytes.len) {
+            return error.InboxFull;
+        }
         try self.fifo.write(bytes);
     }
 
     pub fn receive(self: *Inbox, value: anytype) bool {
-        const value_size = @sizeOf(@TypeOf(value.*));
+        const T = @TypeOf(value.*);
+        const value_size = @sizeOf(T);
+        const alignment = @alignOf(T);
+
         if (self.fifo.readableLength() < value_size) {
             return false;
         }
 
         const bytes = self.fifo.readableSlice(0)[0..value_size];
+        if (@intFromPtr(&bytes[0]) % alignment != 0) {
+            return false;
+        }
+
         @memcpy(std.mem.asBytes(value), bytes);
         _ = self.fifo.discard(value_size);
         return true;

@@ -32,21 +32,7 @@ pub const ActorInterface = struct {
     }
 
     pub fn receive(self: ActorInterface) void {
-        // TODO This is incorrect
-        // var msg: ?*const anyopaque = null;
-        // Assume inbox.receive returns an error union or a boolean that indicates success.
-        var candlestick: Candlestick = undefined;
-
-        const result = self.inbox.receive(&candlestick);
-        std.debug.print("result {}\n", .{result});
-        std.debug.print("candlestick {}\n", .{candlestick});
-        // if (result) |actualMsg| {
-        //     // Now that we have a valid message pointer, call the actor's receive function.
-        //     self.receiveFnPtr(self.ptr, actualMsg);
-        // } else {
-        //     // Handle the case where no message was available or an error occurred.
-        //     // For example, log an error or simply return.
-        // }
+        self.inbox.receive(self.ptr, null);
     }
 };
 

@@ -41,7 +41,6 @@ pub const Engine = struct {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
             try a.inbox.send(message);
-            a.receive();
         }
     }
     pub fn broadcast(self: *Engine, message: anytype) !void {

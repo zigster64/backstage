@@ -5,10 +5,10 @@ const testing = std.testing;
 
 const Engine = alphazig.Engine;
 const CandlesticksActor = common.CandlesticksActor;
+const StartIntervalMessage = common.StartIntervalMessage;
 const CandlesticksMessage = common.CandlesticksMessage;
 const OtherUnionMessage = common.OtherUnionMessage;
 const Candlestick = common.Candlestick;
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -86,4 +86,20 @@ test "send - sending to non-existent actor is handled gracefully" {
 
     const message = CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } };
     try engine.send("non-existent", message);
+}
+
+test "send - can send StartIntervalMessage to actor" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var engine = Engine.init(allocator);
+    defer engine.deinit();
+
+    try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
+        .id = "candlesticks",
+    });
+
+    const message = StartIntervalMessage{ .interval_ms = 1000 };
+    try engine.send("candlesticks", message);
 }
