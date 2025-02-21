@@ -10,6 +10,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    lib.addIncludePath(b.path("lib/neco"));
+    lib.addIncludePath(b.path("lib/boot_neco"));
     b.installArtifact(lib);
 
     const lib_module = b.createModule(.{
@@ -70,9 +72,49 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: struct
     });
 
     exe.root_module.addImport("alphazig", options.lib_module);
+
+    exe.linkSystemLibrary("c");
+    addNeco(b, exe, options.lib_module);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
+
     b.step("run-" ++ exampleName, "Run example " ++ exampleName).dependOn(&run_cmd.step);
+}
+
+fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.Module) void {
+    // Neco - coroutines
+    const necoCFlags = &.{
+        "-std=c11",
+        "-O0",
+        "-g3",
+        "-Wall",
+        "-Wextra",
+        "-fstrict-aliasing",
+        "-DLLCO_NOUNWIND",
+        "-pedantic",
+        "-Werror",
+        "-fno-omit-frame-pointer",
+        //"-fsanitize=address",
+        //"-Wall",
+        //"-Wextra",
+        //"-O0", // No optimizations at all (used for debugging bruh)...later remove this.
+
+        // RC: Some build errors are simply because compiler is too strict, need to loosen the error requirements.
+        //"-Wunused-parameter",
+        //"-Wzero-length-array",
+    };
+    // Not sure if this is needed.
+    // exe.addIncludePath(b.path("lib/neco"));
+    // exe.addIncludePath(b.path("lib/boot_neco"));
+    lib_module.addIncludePath(b.path("lib/neco"));
+    lib_module.addIncludePath(b.path("lib/boot_neco"));
+    exe.addCSourceFile(.{
+        .file = b.path("lib/neco/neco.c"),
+        .flags = necoCFlags,
+    });
+
+    // Maybe needed?
+    // exe.defineCMacro("SCO_QUICKSTART", "1");
 }

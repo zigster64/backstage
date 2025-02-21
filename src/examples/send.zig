@@ -9,6 +9,7 @@ const StartIntervalMessage = common.StartIntervalMessage;
 const CandlesticksMessage = common.CandlesticksMessage;
 const OtherUnionMessage = common.OtherUnionMessage;
 const Candlestick = common.Candlestick;
+const zeco = alphazig.zeco;
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -19,16 +20,12 @@ pub fn main() !void {
     try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
-
-    // Able to send the message the actor is listening for
-    engine.send("candlesticks", CandlesticksMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    // Able to send the message part of a union that the actor is not listening for
-    engine.send("candlesticks", OtherUnionMessage{ .candlestick = Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    // Able to send message with
-    engine.send("candlesticks", Candlestick{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 });
+    zeco.init();
 }
 
 test "send - can send CandlesticksMessage to actor" {
+    // zeco.init();
+
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
