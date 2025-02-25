@@ -19,10 +19,7 @@ fn neco_main(_: c_int, _: [*c]?*anyopaque) callconv(.C) void {
         .message = "Hello, world!",
     };
     Coroutine.spawn(&ctx, parameterized_task, args);
-    Coroutine.spawn(&ctx, test_parameterized_task, .{
-        .x = 40,
-        .message = "Hello, world!",
-    });
+    Coroutine.spawn(&ctx, test_parameterized_task, .{ .x = 40, .message = "Hello, world!" });
     _ = c.neco_waitgroup_wait(ctx.wg);
     std.debug.print("Done\n", .{});
 }
@@ -60,13 +57,13 @@ pub const Context = struct {
         _ = c.neco_yield();
     }
 
-    pub fn add(self: Context, delta: i64) void {
+    pub inline fn add(self: Context, delta: i64) void {
         _ = c.neco_waitgroup_add(self.wg, @intCast(delta));
     }
-    pub fn done(self: Context) void {
+    pub inline fn done(self: Context) void {
         _ = c.neco_waitgroup_done(self.wg);
     }
-    pub fn wait(self: Context) void {
+    pub inline fn wait(self: Context) void {
         _ = c.neco_waitgroup_wait(self.wg);
     }
 };
