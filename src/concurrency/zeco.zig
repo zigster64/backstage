@@ -18,9 +18,13 @@ fn neco_main(_: c_int, _: [*c]?*anyopaque) callconv(.C) void {
         .x = 42,
         .message = "Hello, world!",
     };
-    Coroutine.spawn(&ctx, parameterized_task, &args);
-
-    _ = c.neco_waitgroup_wait(&wg);
+    Coroutine.spawn(&ctx, parameterized_task, args);
+    Coroutine.spawn(&ctx, test_parameterized_task, .{
+        .x = 40,
+        .message = "Hello, world!",
+    });
+    _ = c.neco_waitgroup_wait(ctx.wg);
+    std.debug.print("Done\n", .{});
 }
 
 fn simple_task(ctx: Context) void {
@@ -35,7 +39,14 @@ const TaskArgs = struct {
     message: []const u8,
 };
 
-fn parameterized_task(ctx: *Context, args: *const TaskArgs) void {
+fn test_parameterized_task(ctx: *Context, args: struct { x: i32, message: []const u8 }) void {
+    while (true) {
+        std.log.info("Got number {d} and message: {s}", .{ args.x, args.message });
+        ctx.yield();
+    }
+}
+fn parameterized_task(ctx: *Context, args: TaskArgs) void {
+    ctx.add(1);
     while (true) {
         std.log.info("Got number {d} and message: {s}", .{ args.x, args.message });
         ctx.yield();
@@ -49,35 +60,40 @@ pub const Context = struct {
         _ = c.neco_yield();
     }
 
+    pub fn add(self: Context, delta: i64) void {
+        _ = c.neco_waitgroup_add(self.wg, @intCast(delta));
+    }
     pub fn done(self: Context) void {
         _ = c.neco_waitgroup_done(self.wg);
+    }
+    pub fn wait(self: Context) void {
+        _ = c.neco_waitgroup_wait(self.wg);
     }
 };
 
 pub const Coroutine = struct {
-    wg: *Context,
+    ctx: *Context,
 
     pub fn spawn(ctx: *Context, comptime function: anytype, args: anytype) void {
-        _ = c.neco_waitgroup_add(ctx.wg, 1);
-        var c_args: [2]?*const anyopaque = undefined;
-        c_args[0] = @ptrCast(@alignCast(ctx));
-        c_args[1] = @ptrCast(@alignCast(args));
-
-        const func = struct {
+        const wrapper = struct {
             fn inner(_: c_int, argv: [*c]?*anyopaque) callconv(.C) void {
-                const inner_ctx = @as(*Context, @ptrCast(@alignCast(argv[0])));
+                const captured_ctx: *Context = @alignCast(@ptrCast(argv[0]));
+                const captured_args: *@TypeOf(args) = @alignCast(@ptrCast(argv[1]));
 
-                if (argv[1] == null) {
-                    @panic("argument pointer is null");
+                // Get the exact struct type from the function's parameter
+                const FnInfo = @typeInfo(@TypeOf(function)).@"fn";
+                const ArgType = FnInfo.params[1].type.?;
+
+                // Create a properly typed version of the args
+                var exact_args: ArgType = undefined;
+                inline for (@typeInfo(@TypeOf(captured_args.*)).@"struct".fields) |field| {
+                    @field(exact_args, field.name) = @field(captured_args.*, field.name);
                 }
-                const inner_args = @as(*const @TypeOf(args.*), @ptrCast(@alignCast(argv[1])));
 
-                function(inner_ctx, inner_args);
-                inner_ctx.done();
+                function(captured_ctx, exact_args);
+                captured_ctx.done();
             }
         }.inner;
-
-        _ = c.neco_start(func, @intCast(c_args.len), &c_args);
-        _ = c.neco_waitgroup_wait(ctx.wg);
+        _ = c.neco_start(wrapper, 2, ctx, &args);
     }
 };
