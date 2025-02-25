@@ -22,9 +22,8 @@ pub const Context = struct {
 };
 
 pub const Coroutine = struct {
-    ctx: *Context,
-
-    pub fn spawn(ctx: *Context, comptime function: anytype, args: anytype) void {
+    inner: fn (_: c_int, argv: [*c]?*anyopaque) callconv(.C) void,
+    pub fn init(comptime function: anytype, args: anytype) Coroutine {
         const wrapper = struct {
             fn inner(_: c_int, argv: [*c]?*anyopaque) callconv(.C) void {
                 const captured_ctx: *Context = @alignCast(@ptrCast(argv[0]));
@@ -40,10 +39,14 @@ pub const Coroutine = struct {
                     @field(exact_args, field.name) = @field(captured_args.*, field.name);
                 }
 
-                function(captured_ctx, exact_args);
-                captured_ctx.done();
+                function(captured_ctx, exact_args) catch |err| {
+                    std.log.err("Coroutine function error: {s}", .{@errorName(err)});
+                };
             }
         }.inner;
-        _ = c.neco_start(wrapper, 2, ctx, &args);
+        return Coroutine{ .inner = wrapper };
+    }
+    pub fn spawn(ctx: *Context, comptime function: anytype, args: anytype) void {
+        _ = c.neco_start(init(function, args).inner, 2, ctx, &args);
     }
 };

@@ -14,9 +14,11 @@ const Coroutine = concurrency.Coroutine;
 const Context = concurrency.Context;
 
 pub fn main() !void {
-    concurrency.init(Coroutine.spawn(mainRoutine));
+    // var ctx = Context{};
+    concurrency.init(mainRoutine);
 }
-pub fn mainRoutine() void {
+pub fn mainRoutine(_: *Context, _: void) !void {
+    // ctx.add(1);
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
@@ -26,6 +28,16 @@ pub fn mainRoutine() void {
     try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
+    var new_ctx = Context{};
+    Coroutine.spawn(&new_ctx, testRoutine, .{});
+}
+
+pub fn testRoutine(ctx: *Context, _: void) !void {
+    while (true) {
+        std.debug.print("testRoutine\n", .{});
+        std.time.sleep(1000000000);
+        ctx.yield();
+    }
 }
 
 test "send - can send CandlesticksMessage to actor" {
