@@ -2,6 +2,7 @@ const std = @import("std");
 const alphazig = @import("alphazig");
 const common = @import("./common_types.zig");
 const testing = std.testing;
+const concurrency = alphazig.concurrency;
 
 const Engine = alphazig.Engine;
 const CandlesticksActor = common.CandlesticksActor;
@@ -9,8 +10,13 @@ const StartIntervalMessage = common.StartIntervalMessage;
 const CandlesticksMessage = common.CandlesticksMessage;
 const OtherUnionMessage = common.OtherUnionMessage;
 const Candlestick = common.Candlestick;
-const zeco = alphazig.zeco;
+const Coroutine = concurrency.Coroutine;
+const Context = concurrency.Context;
+
 pub fn main() !void {
+    concurrency.init(Coroutine.spawn(mainRoutine));
+}
+pub fn mainRoutine() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
@@ -20,7 +26,6 @@ pub fn main() !void {
     try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
         .id = "candlesticks",
     });
-    zeco.init();
 }
 
 test "send - can send CandlesticksMessage to actor" {
