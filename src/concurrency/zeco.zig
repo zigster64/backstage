@@ -7,11 +7,16 @@ const c = @cImport({
 const Coroutine = coroutine.Coroutine;
 const Context = coroutine.Context;
 
-// Option 1: Use static allocation
-var global_wg: c.neco_waitgroup = undefined;
-
-pub fn init(mainRoutine: fn (ctx: *Context, _: void) anyerror!void) void {
-    global_wg = std.mem.zeroes(c.neco_waitgroup);
+pub fn run(mainRoutine: fn (ctx: *Context, _: void) anyerror!void) void {
+    const ctx = Context{};
+    _ = c.neco_start(
+        Coroutine.init(mainRoutine, .{}).inner,
+        1,
+        &ctx,
+    );
+}
+pub fn run_and_block(mainRoutine: fn (ctx: *Context, _: void) anyerror!void) void {
+    var global_wg = std.mem.zeroes(c.neco_waitgroup);
     _ = c.neco_waitgroup_init(&global_wg);
     _ = c.neco_waitgroup_add(&global_wg, @intCast(10));
     const ctx = Context{ .wg = &global_wg };

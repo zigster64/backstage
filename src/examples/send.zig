@@ -15,7 +15,7 @@ const Context = concurrency.Context;
 
 pub fn main() !void {
     // var ctx = Context{};
-    concurrency.init(mainRoutine);
+    concurrency.run(mainRoutine);
 }
 pub fn mainRoutine(_: *Context, _: void) !void {
     // ctx.add(1);
