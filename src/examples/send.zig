@@ -7,10 +7,11 @@ const Engine = alphazig.Engine;
 const Coroutine = concurrency.Coroutine;
 const Context = concurrency.Context;
 const Channel = concurrency.Channel;
+const EmptyArgs = concurrency.EmptyArgs;
 pub fn main() !void {
     concurrency.run(mainRoutine);
 }
-pub fn mainRoutine(_: *Context, _: void) !void {
+pub fn mainRoutine(_: *Context, _: EmptyArgs) !void {
     // ctx.add(1);
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();

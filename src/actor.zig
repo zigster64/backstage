@@ -28,7 +28,6 @@ pub const ActorInterface = struct {
             }
         };
 
-        // _ = MsgType;
         const receiveRoutine = struct {
             fn routine(ctx: *Context, args: struct { self: ActorInterface }) !void {
                 var msg: MsgType = undefined;
@@ -47,7 +46,7 @@ pub const ActorInterface = struct {
         };
 
         var ctx = Context.init(null);
-        Coroutine.spawn(&ctx, receiveRoutine, .{ .self = instance });
+        Coroutine(receiveRoutine).go(&ctx, .{ .self = instance });
 
         return instance;
     }

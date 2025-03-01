@@ -1,5 +1,6 @@
 const std = @import("std");
 const coroutine = @import("coroutine.zig");
+const EmptyArgs = @import("root.zig").EmptyArgs;
 const c = @cImport({
     @cInclude("neco.h");
 });
@@ -7,10 +8,10 @@ const c = @cImport({
 const Coroutine = coroutine.Coroutine;
 const Context = coroutine.Context;
 
-pub fn run(mainRoutine: fn (ctx: *Context, _: void) anyerror!void) void {
+pub fn run(mainRoutine: fn (ctx: *Context, args: EmptyArgs) anyerror!void) void {
     const ctx = Context{};
     _ = c.neco_start(
-        Coroutine.init(mainRoutine, .{}).inner,
+        Coroutine(mainRoutine).inner,
         1,
         &ctx,
     );
