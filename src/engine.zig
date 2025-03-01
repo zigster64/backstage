@@ -28,13 +28,14 @@ pub const Engine = struct {
         self.Registry.deinit();
     }
 
-    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !void {
+    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !ActorInterface {
         const actor_instance = try ActorType.init(self.allocator);
         const receiveFn = act.makeReceiveFn(ActorType, MsgType);
-        const actor_interface = try ActorInterface.init(self.allocator, actor_instance, options.capacity, receiveFn);
+        const actor_interface = try ActorInterface.init(self.allocator, actor_instance, options.capacity, receiveFn, MsgType);
 
         const message_type_names = type_utils.getTypeNames(MsgType);
         try self.Registry.add(options.id, &message_type_names, actor_interface);
+        return actor_interface;
     }
 
     pub fn send(self: *Engine, id: []const u8, message: anytype) !void {

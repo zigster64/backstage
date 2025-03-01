@@ -14,14 +14,13 @@ pub fn build(b: *std.Build) void {
     lib.addIncludePath(b.path("lib/boot_neco"));
     b.installArtifact(lib);
 
-    const lib_module = b.createModule(.{
+    const lib_module = b.addModule("alphazig", .{
         .root_source_file = .{ .cwd_relative = "src/root.zig" },
     });
 
     // Examples
     const examples = .{
         "send",
-        "broadcast",
     };
 
     inline for (examples) |example| {

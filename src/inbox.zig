@@ -1,47 +1,29 @@
 const std = @import("std");
+const concurrency = @import("concurrency/root.zig");
 
-const LinearFifo = std.fifo.LinearFifo;
+const Channel = concurrency.Channel;
 const Allocator = std.mem.Allocator;
 
 pub const Inbox = struct {
-    fifo: LinearFifo(u8, .Dynamic),
+    chan: Channel,
 
-    pub fn init(allocator: Allocator, capacity: usize) !*Inbox {
-        const inbox = try allocator.create(Inbox);
-        inbox.fifo = LinearFifo(u8, .Dynamic).init(allocator);
-        try inbox.fifo.ensureTotalCapacity(capacity);
-        inbox.fifo.shrink(capacity);
-        return inbox;
+    pub fn init(comptime T: type, capacity: usize) !Inbox {
+        var chan = try Channel.init(T, capacity * @sizeOf(T));
+        try chan.retain();
+        return .{
+            .chan = chan,
+        };
     }
 
     pub fn deinit(self: *Inbox) void {
-        self.fifo.deinit();
+        self.chan.deinit();
     }
 
-    pub fn send(self: *Inbox, message: anytype) !void {
-        const bytes = std.mem.asBytes(&message);
-        if (self.fifo.writableLength() < bytes.len) {
-            return error.InboxFull;
-        }
-        try self.fifo.write(bytes);
+    pub fn send(self: Inbox, message: anytype) !void {
+        try self.chan.send(message);
     }
 
-    pub fn receive(self: *Inbox, value: anytype) bool {
-        const T = @TypeOf(value.*);
-        const value_size = @sizeOf(T);
-        const alignment = @alignOf(T);
-
-        if (self.fifo.readableLength() < value_size) {
-            return false;
-        }
-
-        const bytes = self.fifo.readableSlice(0)[0..value_size];
-        if (@intFromPtr(&bytes[0]) % alignment != 0) {
-            return false;
-        }
-
-        @memcpy(std.mem.asBytes(value), bytes);
-        _ = self.fifo.discard(value_size);
-        return true;
+    pub fn receive(self: Inbox, value: anytype) !void {
+        try self.chan.receive(value);
     }
 };

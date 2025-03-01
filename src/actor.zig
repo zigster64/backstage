@@ -1,20 +1,24 @@
 const std = @import("std");
 const inbox = @import("inbox.zig");
+const concurrency = @import("concurrency/root.zig");
 
 const assert = std.debug.assert;
 const Inbox = inbox.Inbox;
+const Coroutine = concurrency.Coroutine;
+const Context = concurrency.Context;
 
 pub const ActorInterface = struct {
     ptr: *anyopaque,
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
 
-    inbox: *Inbox,
+    inbox: Inbox,
 
     pub fn init(
-        allocator: std.mem.Allocator,
+        _: std.mem.Allocator,
         obj: anytype,
         capacity: usize,
         comptime receiveFn: fn (ptr: @TypeOf(obj), msg: *const anyopaque) void,
+        comptime MsgType: type,
     ) !ActorInterface {
         const T = @TypeOf(obj);
         const impl = struct {
@@ -24,15 +28,32 @@ pub const ActorInterface = struct {
             }
         };
 
-        return .{
+        // _ = MsgType;
+        const receiveRoutine = struct {
+            fn routine(ctx: *Context, args: struct { self: ActorInterface }) !void {
+                var msg: MsgType = undefined;
+                while (true) {
+                    try args.self.inbox.receive(&msg);
+                    std.debug.print("received message {}\n", .{msg});
+                    ctx.yield();
+                }
+            }
+        }.routine;
+
+        const instance = ActorInterface{
             .ptr = obj,
             .receiveFnPtr = impl.receive,
-            .inbox = try Inbox.init(allocator, capacity),
+            .inbox = try Inbox.init(MsgType, capacity),
         };
+
+        var ctx = Context.init(null);
+        Coroutine.spawn(&ctx, receiveRoutine, .{ .self = instance });
+
+        return instance;
     }
 
-    pub fn receive(self: ActorInterface) void {
-        self.inbox.receive(self.ptr, null);
+    pub fn send(self: *const ActorInterface, msg: anytype) !void {
+        try self.inbox.send(msg);
     }
 };
 

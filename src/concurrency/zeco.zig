@@ -23,10 +23,8 @@ pub fn run_and_block(mainRoutine: fn (ctx: *Context, _: void) anyerror!void) voi
 
     const wg_main_routine_wrapper = struct {
         fn inner(ci: c_int, argv: [*c]?*anyopaque) callconv(.C) void {
-            const captured_ctx: *Context = @alignCast(@ptrCast(argv[0]));
-            captured_ctx.add(1);
             Coroutine.init(mainRoutine, .{}).inner(ci, argv);
-            captured_ctx.wait();
+            _ = c.neco_suspend();
         }
     }.inner;
 
