@@ -4,14 +4,15 @@ const testing = std.testing;
 const concurrency = alphazig.concurrency;
 
 const Engine = alphazig.Engine;
+const Context = alphazig.Context;
 const Coroutine = concurrency.Coroutine;
-const Context = concurrency.Context;
+const Scheduler = concurrency.Scheduler;
 const Channel = concurrency.Channel;
 const EmptyArgs = concurrency.EmptyArgs;
 pub fn main() !void {
     concurrency.run(mainRoutine);
 }
-pub fn mainRoutine(_: *Context, _: EmptyArgs) !void {
+pub fn mainRoutine(_: *Scheduler, _: EmptyArgs) !void {
     // ctx.add(1);
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -76,7 +77,8 @@ pub const Candlestick = struct {
 pub const CandlestickReceiver = struct {
     candlesticks: std.ArrayList(Candlestick),
 
-    pub fn init(arena: *std.heap.ArenaAllocator) !*@This() {
+    pub fn init(ctx: *Context, arena: *std.heap.ArenaAllocator) !*@This() {
+        _ = ctx;
         const allocator = arena.allocator();
         const self = try allocator.create(@This());
         self.* = .{
@@ -85,7 +87,7 @@ pub const CandlestickReceiver = struct {
         return self;
     }
 
-    pub fn receive(_: *@This(), message: *const CanclestickReveiverMessage) void {
+    pub fn receive(_: *@This(), message: *const CanclestickReveiverMessage) !void {
         switch (message.*) {
             .candlestick => |candlestick| {
                 std.debug.print("Received Candlestick:\n  open: {}\n  high: {}\n  low: {}\n  close: {}\n", .{ candlestick.open, candlestick.high, candlestick.low, candlestick.close });
@@ -99,17 +101,25 @@ pub const CandlestickSenderMessage = union(enum) {
 };
 
 pub const CandlestickSender = struct {
-    
-    pub fn init(arena: *std.heap.ArenaAllocator) !*@This() {
+    ctx: *Context,
+    pub fn init(ctx: *Context, arena: *std.heap.ArenaAllocator) !*@This() {
         const allocator = arena.allocator();
         const self = try allocator.create(@This());
+        self.* = .{
+            .ctx = ctx,
+        };
         return self;
     }
 
-    pub fn receive(_: *@This(), message: *const CandlestickSenderMessage) void {
+    pub fn receive(self: *@This(), message: *const CandlestickSenderMessage) !void {
         switch (message.*) {
             .start_sending => {
                 std.debug.print("Received StartSendingMessage\n", .{});
+                const candlestick_receiver = self.ctx.getActor("candlestick_receiver");
+                try candlestick_receiver.?.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+                // if (candlestick_receiver) |receiver| {
+                //     try receiver.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+                // }
             },
         }
     }

@@ -1,31 +1,35 @@
 const std = @import("std");
 const inbox = @import("inbox.zig");
 const concurrency = @import("concurrency/root.zig");
+const eng = @import("engine.zig");
+const ctxt = @import("context.zig");
 
-const assert = std.debug.assert;
 const Inbox = inbox.Inbox;
 const Coroutine = concurrency.Coroutine;
-const Context = concurrency.Context;
+const Scheduler = concurrency.Scheduler;
+const Engine = eng.Engine;
+const Context = ctxt.Context;
 
 pub const ActorInterface = struct {
     arena_allocator: std.heap.ArenaAllocator,
     ptr: *anyopaque,
     inbox: Inbox,
 
-    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
+    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) anyerror!void,
     deinitFnPtr: *const fn (ptr: *anyopaque) void,
 
     pub fn init(
-        parent_allocator: std.mem.Allocator,
+        engine: *Engine,
         comptime ActorType: type,
         comptime MsgType: type,
         capacity: usize,
     ) !*@This() {
-        var arena = std.heap.ArenaAllocator.init(parent_allocator);
+        var arena = std.heap.ArenaAllocator.init(engine.allocator);
         errdefer arena.deinit();
 
+        const ctx = try Context.init(&arena, engine);
         const arena_allocator = arena.allocator();
-        const actor_instance = try ActorType.init(&arena);
+        const actor_instance = try ActorType.init(ctx, &arena);
 
         const receiveFn = makeTypeErasedReceiveFn(ActorType, MsgType);
         const deinitFn = makeTypeErasedDeinitFn(ActorType);
@@ -39,8 +43,8 @@ pub const ActorInterface = struct {
             .receiveFnPtr = receiveFn,
             .deinitFnPtr = deinitFn,
         };
-        var ctx = Context.init(null);
-        Coroutine(routineFn).go(&ctx, self);
+        var scheduler = Scheduler{};
+        Coroutine(routineFn).go(&scheduler, self);
 
         return self;
     }
@@ -56,24 +60,24 @@ pub const ActorInterface = struct {
     }
 };
 
-pub fn makeRoutineFn(comptime MsgType: type) fn (*Context, *ActorInterface) anyerror!void {
+pub fn makeRoutineFn(comptime MsgType: type) fn (*Scheduler, *ActorInterface) anyerror!void {
     return struct {
-        fn routine(_: *Context, args: *ActorInterface) !void {
+        fn routine(_: *Scheduler, args: *ActorInterface) !void {
             var msg: MsgType = undefined;
             while (true) {
                 try args.inbox.receive(&msg);
-                args.receiveFnPtr(args.ptr, &msg);
+                try args.receiveFnPtr(args.ptr, &msg);
             }
         }
     }.routine;
 }
 
-fn makeTypeErasedReceiveFn(comptime ActorType: type, comptime MsgType: type) fn (*anyopaque, *const anyopaque) void {
+fn makeTypeErasedReceiveFn(comptime ActorType: type, comptime MsgType: type) fn (*anyopaque, *const anyopaque) anyerror!void {
     return struct {
-        fn wrapper(ptr: *anyopaque, msg: *const anyopaque) void {
+        fn wrapper(ptr: *anyopaque, msg: *const anyopaque) anyerror!void {
             const self = @as(*ActorType, @ptrCast(@alignCast(ptr)));
             const typed_msg = @as(*const MsgType, @ptrCast(@alignCast(msg)));
-            ActorType.receive(self, typed_msg);
+            try ActorType.receive(self, typed_msg);
         }
     }.wrapper;
 }

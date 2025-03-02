@@ -28,7 +28,7 @@ pub const Engine = struct {
     }
 
     pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
-        const actor_interface = try ActorInterface.init(self.allocator, ActorType, MsgType, options.capacity);
+        const actor_interface = try ActorInterface.init(self, ActorType, MsgType, options.capacity);
         errdefer actor_interface.deinit();
 
         try self.Registry.add(options.id, MsgType, actor_interface);
