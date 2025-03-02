@@ -19,13 +19,12 @@ pub fn mainRoutine(_: *Context, _: EmptyArgs) !void {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    const candlesticks_actor = try engine.spawnActor(CandlesticksActor, CandlesticksMessage, .{
+    const candlestick_receiver = try engine.spawnActor(CandlestickReceiver, CandlesticksMessage, .{
         .id = "candlesticks",
     });
-    // _ = candlesticks_actor;
-    try engine.send("candlesticks", CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    try candlesticks_actor.send(CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    candlesticks_actor.deinit();
+    // try engine.send("candlesticks", CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    try candlestick_receiver.send(CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    // candlestick_receiver.deinit();
     // candlesticks_actor.send(.{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
     // candlesticks_actor.start_receiving();
     // var chan = try Channel.init(i32, 0);
@@ -79,23 +78,20 @@ pub const OtherUnionMessage = union(enum) {
     candlestick: Candlestick,
 };
 
-pub const CandlesticksActor = struct {
+pub const CandlestickReceiver = struct {
     candlesticks: std.ArrayList(Candlestick),
 
-    pub fn init(allocator: std.mem.Allocator) !*CandlesticksActor {
-        const self = try allocator.create(CandlesticksActor);
+    pub fn init(arena: *std.heap.ArenaAllocator) !*@This() {
+        const allocator = arena.allocator();
+        const self = try allocator.create(@This());
         self.* = .{
             .candlesticks = std.ArrayList(Candlestick).init(allocator),
         };
         return self;
     }
 
-    pub fn deinit(self: *CandlesticksActor, allocator: std.mem.Allocator) void {
-        self.candlesticks.deinit();
-        allocator.destroy(self);
-    }
 
-    pub fn receive(_: *CandlesticksActor, message: *const CandlesticksMessage) void {
+    pub fn receive(_: *@This(), message: *const CandlesticksMessage) void {
         switch (message.*) {
             .start_interval => |start_interval| {
                 std.debug.print("Received StartIntervalMessage:\n  interval_ms: {}\n", .{start_interval.interval_ms});

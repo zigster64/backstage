@@ -43,7 +43,6 @@ pub fn Coroutine(comptime FnType: anytype) type {
         fn inner(_: c_int, argv: [*c]?*anyopaque) callconv(.C) void {
             const captured_ctx: *Context = @alignCast(@ptrCast(argv[0]));
             const captured_args: *ArgType = @alignCast(@ptrCast(argv[1]));
-
             const ReturnType = FnInfo.return_type.?;
             if (@typeInfo(ReturnType) == .error_union) {
                 FnType(captured_ctx, captured_args.*) catch |err| {

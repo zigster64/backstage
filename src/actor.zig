@@ -8,73 +8,107 @@ const Coroutine = concurrency.Coroutine;
 const Context = concurrency.Context;
 
 pub const ActorInterface = struct {
+    arena_allocator: std.heap.ArenaAllocator,
     ptr: *anyopaque,
-    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
-
     inbox: Inbox,
 
+    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) void,
+    deinitFnPtr: *const fn (ptr: *anyopaque) void,
+
     pub fn init(
-        _: std.mem.Allocator,
-        obj: anytype,
-        capacity: usize,
-        comptime receiveFn: fn (ptr: @TypeOf(obj), msg: *const anyopaque) void,
+        parent_allocator: std.mem.Allocator,
+        comptime ActorType: type,
         comptime MsgType: type,
-    ) !ActorInterface {
-        const T = @TypeOf(obj);
-        const impl = struct {
-            fn receive(ptr: *anyopaque, msg: *const anyopaque) void {
-                const self = @as(T, @ptrCast(@alignCast(ptr)));
-                receiveFn(self, msg);
-            }
-        };
+        capacity: usize,
+    ) !*@This() {
+        var arena = std.heap.ArenaAllocator.init(parent_allocator);
+        errdefer arena.deinit();
 
-        const receiveRoutine = struct {
-            fn routine(ctx: *Context, args: struct { self: ActorInterface }) !void {
-                var msg: MsgType = undefined;
-                while (true) {
-                    try args.self.inbox.receive(&msg);
-                    std.debug.print("received message {}\n", .{msg});
-                    ctx.yield();
-                }
-            }
-        }.routine;
+        const arena_allocator = arena.allocator();
+        const actor_instance = try ActorType.init(&arena);
 
-        const instance = ActorInterface{
-            .ptr = obj,
-            .receiveFnPtr = impl.receive,
+        const receiveFn = makeTypeErasedReceiveFn(ActorType, MsgType);
+        const deinitFn = makeTypeErasedDeinitFn(ActorType);
+        const routineFn = makeRoutineFn(MsgType);
+
+        const self = try arena_allocator.create(@This());
+        self.* = .{
+            .arena_allocator = arena,
+            .ptr = actor_instance,
             .inbox = try Inbox.init(MsgType, capacity),
+            .receiveFnPtr = receiveFn,
+            .deinitFnPtr = deinitFn,
         };
-
         var ctx = Context.init(null);
-        Coroutine(receiveRoutine).go(&ctx, .{ .self = instance });
+        Coroutine(routineFn).go(&ctx, self);
 
-        return instance;
+        return self;
     }
 
-    pub fn deinit(self: *const ActorInterface) void {
+    pub fn deinit(self: *@This()) void {
         self.inbox.deinit();
+        self.arena_allocator.deinit();
+        self.deinitFnPtr(self.ptr);
     }
 
-    pub fn send(self: *const ActorInterface, msg: anytype) !void {
+    pub fn send(self: *@This(), msg: anytype) !void {
         try self.inbox.send(msg);
     }
 };
 
-pub fn makeReceiveFn(
-    comptime ActorType: type,
-    comptime MsgType: type,
-) fn (actor: *ActorType, message: *const anyopaque) void {
+pub fn makeRoutineFn(comptime MsgType: type) fn (*Context, *ActorInterface) anyerror!void {
     return struct {
-        fn receive(actor: *ActorType, message: *const anyopaque) void {
-            const castMsg = @as(*const MsgType, @ptrCast(@alignCast(message)));
-            ActorType.receive(actor, castMsg);
+        fn routine(_: *Context, args: *ActorInterface) !void {
+            var msg: MsgType = undefined;
+            while (true) {
+                try args.inbox.receive(&msg);
+                args.receiveFnPtr(args.ptr, &msg);
+            }
         }
-    }.receive;
+    }.routine;
 }
 
-pub const Candlestick = struct {
-    open: f64,
-    high: f64,
-    low: f64,
-    close: f64,
-};
+fn makeTypeErasedReceiveFn(comptime ActorType: type, comptime MsgType: type) fn (*anyopaque, *const anyopaque) void {
+    return struct {
+        fn wrapper(ptr: *anyopaque, msg: *const anyopaque) void {
+            const self = @as(*ActorType, @ptrCast(@alignCast(ptr)));
+            const typed_msg = @as(*const MsgType, @ptrCast(@alignCast(msg)));
+            ActorType.receive(self, typed_msg);
+        }
+    }.wrapper;
+}
+
+fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) void {
+    return struct {
+        fn wrapper(ptr: *anyopaque) void {
+            const self = @as(*ActorType, @ptrCast(@alignCast(ptr)));
+            if (comptime hasDeinitMethod(ActorType)) {
+                ActorType.deinit(self);
+            }
+        }
+    }.wrapper;
+}
+fn hasDeinitMethod(comptime T: type) bool {
+    const typeInfo = @typeInfo(T);
+    if (typeInfo != .@"struct") return false;
+
+    inline for (typeInfo.@"struct".decls) |decl| {
+        if (!std.mem.eql(u8, decl.name, "deinit")) continue;
+
+        const field = @field(T, decl.name);
+        const FieldType = @TypeOf(field);
+        const fieldInfo = @typeInfo(FieldType);
+
+        if (fieldInfo != .Fn) continue;
+
+        const FnInfo = fieldInfo.Fn;
+        if (FnInfo.params.len != 1) continue;
+
+        const ParamType = FnInfo.params[0].type.?;
+        if (ParamType != *T) continue;
+
+        return true;
+    }
+
+    return false;
+}

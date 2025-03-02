@@ -9,6 +9,7 @@ pub const Inbox = struct {
 
     pub fn init(comptime T: type, capacity: usize) !Inbox {
         var chan = try Channel.init(T, capacity * @sizeOf(T));
+        errdefer chan.deinit();
         try chan.retain();
         return .{
             .chan = chan,

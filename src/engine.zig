@@ -1,7 +1,6 @@
 const reg = @import("registry.zig");
 const act = @import("actor.zig");
 const msg = @import("message.zig");
-const type_utils = @import("type_utils.zig");
 const std = @import("std");
 
 const Allocator = std.mem.Allocator;
@@ -28,13 +27,11 @@ pub const Engine = struct {
         self.Registry.deinit();
     }
 
-    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !ActorInterface {
-        const actor_instance = try ActorType.init(self.allocator);
-        const receiveFn = act.makeReceiveFn(ActorType, MsgType);
-        const actor_interface = try ActorInterface.init(self.allocator, actor_instance, options.capacity, receiveFn, MsgType);
+    pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
+        const actor_interface = try ActorInterface.init(self.allocator, ActorType, MsgType, options.capacity);
+        errdefer actor_interface.deinit();
 
-        const message_type_names = type_utils.getTypeNames(MsgType);
-        try self.Registry.add(options.id, &message_type_names, actor_interface);
+        try self.Registry.add(options.id, MsgType, actor_interface);
         return actor_interface;
     }
 
@@ -45,8 +42,7 @@ pub const Engine = struct {
         }
     }
     pub fn broadcast(self: *Engine, message: anytype) !void {
-        const active_type_name = type_utils.getActiveTypeName(message);
-        const actor = self.Registry.getByMessageType(active_type_name);
+        const actor = self.Registry.getByMessageType(message);
         if (actor) |a| {
             try a.inbox.send(message);
         }
