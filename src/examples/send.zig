@@ -25,6 +25,7 @@ pub fn mainRoutine(_: *Context, _: EmptyArgs) !void {
     // _ = candlesticks_actor;
     try engine.send("candlesticks", CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
     try candlesticks_actor.send(CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    candlesticks_actor.deinit();
     // candlesticks_actor.send(.{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
     // candlesticks_actor.start_receiving();
     // var chan = try Channel.init(i32, 0);

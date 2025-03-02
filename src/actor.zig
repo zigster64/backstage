@@ -51,6 +51,10 @@ pub const ActorInterface = struct {
         return instance;
     }
 
+    pub fn deinit(self: *const ActorInterface) void {
+        self.inbox.deinit();
+    }
+
     pub fn send(self: *const ActorInterface, msg: anytype) !void {
         try self.inbox.send(msg);
     }

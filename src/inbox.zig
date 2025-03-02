@@ -15,7 +15,7 @@ pub const Inbox = struct {
         };
     }
 
-    pub fn deinit(self: *Inbox) void {
+    pub fn deinit(self: *const Inbox) void {
         self.chan.deinit();
     }
 
