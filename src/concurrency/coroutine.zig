@@ -65,5 +65,3 @@ pub fn Coroutine(comptime FnType: anytype) type {
         }
     };
 }
-
-// pub const Coroutine = struct {};
