@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
 
     // Examples
     const examples = .{
-        "send",
+        "example",
     };
 
     inline for (examples) |example| {

@@ -3,7 +3,10 @@ const c = @cImport({
     @cInclude("neco.h");
 });
 
+const Allocator = std.mem.Allocator;
+
 pub const Channel = struct {
+    allocator: Allocator,
     chan: *c.neco_chan,
     data_size: usize,
 
@@ -16,12 +19,13 @@ pub const Channel = struct {
         Empty,
     };
 
-    pub fn init(comptime T: type, capacity: usize) Error!Channel {
+    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) Error!Channel {
         var chan: ?*c.neco_chan = undefined;
         const result = c.neco_chan_make(&chan, @sizeOf(T), capacity);
 
         return switch (result) {
             c.NECO_OK => Channel{
+                .allocator = allocator,
                 .chan = chan.?,
                 .data_size = @sizeOf(T),
             },

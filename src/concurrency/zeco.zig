@@ -9,7 +9,7 @@ const c = @cImport({
 const Coroutine = coroutine.Coroutine;
 const Scheduler = scheduler.Scheduler;
 
-pub fn run(mainRoutine: fn (scheduler: *Scheduler, args: EmptyArgs) anyerror!void) void {
+pub fn run(mainRoutine: fn (args: EmptyArgs) anyerror!void) void {
     const s = Scheduler{};
     _ = c.neco_start(
         Coroutine(mainRoutine).inner,
@@ -17,7 +17,7 @@ pub fn run(mainRoutine: fn (scheduler: *Scheduler, args: EmptyArgs) anyerror!voi
         &s,
     );
 }
-pub fn run_and_block(mainRoutine: fn (scheduler: *Scheduler, _: void) anyerror!void) void {
+pub fn run_and_block(mainRoutine: fn (_: void) anyerror!void) void {
     var global_wg = std.mem.zeroes(c.neco_waitgroup);
     _ = c.neco_waitgroup_init(&global_wg);
     _ = c.neco_waitgroup_add(&global_wg, @intCast(10));

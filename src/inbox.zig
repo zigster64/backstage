@@ -7,8 +7,9 @@ const Allocator = std.mem.Allocator;
 pub const Inbox = struct {
     chan: Channel,
 
-    pub fn init(comptime T: type, capacity: usize) !Inbox {
-        var chan = try Channel.init(T, capacity * @sizeOf(T));
+    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) !Inbox {
+        // var chan = try Channel.init(T, capacity * @sizeOf(T));
+        var chan = try Channel.init(allocator, T, capacity);
         errdefer chan.deinit();
         try chan.retain();
         return .{

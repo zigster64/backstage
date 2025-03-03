@@ -14,6 +14,7 @@ pub const ActorInterface = struct {
     arena_allocator: std.heap.ArenaAllocator,
     ptr: *anyopaque,
     inbox: Inbox,
+    ctx: *Context,
 
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) anyerror!void,
     deinitFnPtr: *const fn (ptr: *anyopaque) void,
@@ -27,13 +28,9 @@ pub const ActorInterface = struct {
         var arena = std.heap.ArenaAllocator.init(engine.allocator);
         errdefer arena.deinit();
 
-        const unique_id = @intFromPtr(try arena.allocator().create(u64));
-        std.debug.print("Arena unique allocation ID: {x}\n", .{unique_id});
-
-        const ctx = try Context.init(&arena, engine);
         const arena_allocator = arena.allocator();
-        const actor_instance = try ActorType.init(ctx, &arena);
-
+        const ctx = try Context.init(arena_allocator, engine);
+        const actor_instance = try ActorType.init(ctx, arena_allocator);
         const receiveFn = makeTypeErasedReceiveFn(ActorType, MsgType);
         const deinitFn = makeTypeErasedDeinitFn(ActorType);
         const routineFn = makeRoutineFn(MsgType);
@@ -42,12 +39,13 @@ pub const ActorInterface = struct {
         self.* = .{
             .arena_allocator = arena,
             .ptr = actor_instance,
-            .inbox = try Inbox.init(MsgType, capacity),
+            .ctx = ctx,
+            .inbox = try Inbox.init(arena_allocator, MsgType, capacity),
             .receiveFnPtr = receiveFn,
             .deinitFnPtr = deinitFn,
         };
-        var scheduler = Scheduler{};
-        Coroutine(routineFn).go(&scheduler, self);
+        ctx.self = self;
+        Coroutine(routineFn).go(self);
 
         return self;
     }
@@ -63,9 +61,9 @@ pub const ActorInterface = struct {
     }
 };
 
-pub fn makeRoutineFn(comptime MsgType: type) fn (*Scheduler, *ActorInterface) anyerror!void {
+pub fn makeRoutineFn(comptime MsgType: type) fn (*ActorInterface) anyerror!void {
     return struct {
-        fn routine(_: *Scheduler, args: *ActorInterface) !void {
+        fn routine(args: *ActorInterface) !void {
             var msg: MsgType = undefined;
             while (true) {
                 try args.inbox.receive(&msg);

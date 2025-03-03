@@ -28,7 +28,6 @@ pub const Engine = struct {
     }
 
     pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
-        std.debug.print("Spawning actor {s}\n", .{options.id});
         const actor_interface = try ActorInterface.init(self, ActorType, MsgType, options.capacity);
         errdefer actor_interface.deinit();
 

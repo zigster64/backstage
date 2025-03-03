@@ -8,16 +8,14 @@ const Scheduler = scheduler.Scheduler;
 
 pub fn Coroutine(comptime FnType: anytype) type {
     const FnInfo = @typeInfo(@TypeOf(FnType)).@"fn";
-    const ArgType = FnInfo.params[1].type.?;
+    const ArgType = FnInfo.params[0].type.?;
 
     const wrapper = struct {
         fn inner(_: c_int, argv: [*c]?*anyopaque) callconv(.C) void {
-            const captured_scheduler: *Scheduler = @alignCast(@ptrCast(argv[0]));
-            const captured_args: *ArgType = @alignCast(@ptrCast(argv[1]));
+            const captured_args: *ArgType = @alignCast(@ptrCast(argv[0]));
             const ReturnType = FnInfo.return_type.?;
-            std.debug.print("captured_args: {*}\n", .{captured_args});
             if (@typeInfo(ReturnType) == .error_union) {
-                FnType(captured_scheduler, captured_args.*) catch |err| {
+                FnType(captured_args.*) catch |err| {
                     // TODO Temporary logging
                     std.log.err("Coroutine function error: {s}", .{@errorName(err)});
                     std.log.err("Function: {s}", .{@typeName(@TypeOf(FnType))});
@@ -26,14 +24,14 @@ pub fn Coroutine(comptime FnType: anytype) type {
                     std.log.err("Args: {s}", .{@typeName(@TypeOf(captured_args.*))});
                 };
             } else {
-                FnType(captured_scheduler, captured_args.*);
+                FnType(captured_args.*);
             }
         }
     }.inner;
     return struct {
         pub const inner: *const fn (_: c_int, argv: [*c]?*anyopaque) callconv(.C) void = wrapper;
-        pub fn go(s: *Scheduler, args: ArgType) void {
-            _ = c.neco_start(wrapper, 2, s, &args);
+        pub fn go(args: ArgType) void {
+            _ = c.neco_start(wrapper, 1, &args);
         }
     };
 }
