@@ -7,7 +7,7 @@ const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 
-const SpawnActorOptions = struct {
+pub const SpawnActorOptions = struct {
     id: []const u8,
     capacity: usize = 1024,
 };
@@ -28,6 +28,7 @@ pub const Engine = struct {
     }
 
     pub fn spawnActor(self: *Engine, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
+        std.debug.print("Spawning actor {s}\n", .{options.id});
         const actor_interface = try ActorInterface.init(self, ActorType, MsgType, options.capacity);
         errdefer actor_interface.deinit();
 

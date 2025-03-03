@@ -15,6 +15,7 @@ pub fn Coroutine(comptime FnType: anytype) type {
             const captured_scheduler: *Scheduler = @alignCast(@ptrCast(argv[0]));
             const captured_args: *ArgType = @alignCast(@ptrCast(argv[1]));
             const ReturnType = FnInfo.return_type.?;
+            std.debug.print("captured_args: {*}\n", .{captured_args});
             if (@typeInfo(ReturnType) == .error_union) {
                 FnType(captured_scheduler, captured_args.*) catch |err| {
                     // TODO Temporary logging

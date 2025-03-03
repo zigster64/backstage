@@ -27,6 +27,9 @@ pub const ActorInterface = struct {
         var arena = std.heap.ArenaAllocator.init(engine.allocator);
         errdefer arena.deinit();
 
+        const unique_id = @intFromPtr(try arena.allocator().create(u64));
+        std.debug.print("Arena unique allocation ID: {x}\n", .{unique_id});
+
         const ctx = try Context.init(&arena, engine);
         const arena_allocator = arena.allocator();
         const actor_instance = try ActorType.init(ctx, &arena);

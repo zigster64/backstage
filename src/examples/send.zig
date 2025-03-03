@@ -24,14 +24,23 @@ pub fn mainRoutine(_: *Scheduler, _: EmptyArgs) !void {
     const candlestick_receiver = try engine.spawnActor(CandlestickReceiver, CanclestickReveiverMessage, .{
         .id = "candlestick_receiver",
     });
+    _ = candlestick_receiver;
     // try engine.send("candlesticks", CandlesticksMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-    try candlestick_receiver.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+    // try candlestick_receiver.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
 
     const candlestick_sender = try engine.spawnActor(CandlestickSender, CandlestickSenderMessage, .{
         .id = "candlestick_sender",
     });
     try candlestick_sender.send(CandlestickSenderMessage{ .init = .{} });
     try candlestick_sender.send(CandlestickSenderMessage{ .start_sending = .{} });
+    // TODO It somehow works if I uncomment this STRANGE
+    // _ = try engine.spawnActor(CandlestickSender, CandlestickSenderMessage, .{
+    //     .id = "candlestick_sender_3",
+    // });
+    // TODO ITS BECAUSE MEMORY GETS DIGCARGED, probably the parameters
+    while (true) {
+        std.time.sleep(1000000000);
+    }
     // candlestick_receiver.deinit();
     // candlesticks_actor.send(.{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
     // candlesticks_actor.start_receiving();
@@ -119,16 +128,19 @@ pub const CandlestickSender = struct {
     pub fn receive(self: *@This(), message: *const CandlestickSenderMessage) !void {
         switch (message.*) {
             .init => {
-                self.candlestick_receiver = self.ctx.engine.Registry.getByID("candlestick_receiver");
+                // self.candlestick_receiver = self.ctx.getActor("candlestick_receiver");
             },
             .start_sending => {
-                while (true) {
-                    self.counter += 1;
-                    if (self.candlestick_receiver) |receiver| {
-                        try receiver.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
-                    }
-                    std.debug.print("Sent {}\n", .{self.counter});
-                }
+                // while (true) {
+                // self.counter += 1;
+                // if (self.candlestick_receiver) |receiver| {
+                //     try receiver.send(CanclestickReveiverMessage{ .candlestick = .{ .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0 } });
+                // }
+                _ = try self.ctx.spawnChildActor(CandlestickSender, CandlestickSenderMessage, .{
+                    .id = "candlestick_sender_2",
+                });
+                // std.debug.print("Sent {}\n", .{self.counter});
+                // }
             },
         }
     }
