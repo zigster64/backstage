@@ -18,8 +18,9 @@ pub const Context = struct {
     parent_actor: ?*ActorInterface,
     child_actors: std.ArrayList(*ActorInterface),
 
-    pub fn init(allocator: Allocator, engine: *Engine) !*@This() {
-        const self = try allocator.create(@This());
+    const Self = @This();
+    pub fn init(allocator: Allocator, engine: *Engine) !*Self {
+        const self = try allocator.create(Self);
         self.* = .{
             .engine = engine,
             .child_actors = std.ArrayList(*ActorInterface).init(allocator),
@@ -30,11 +31,37 @@ pub const Context = struct {
         return self;
     }
 
-    pub fn getActor(self: *@This(), id: []const u8) ?*ActorInterface {
+    pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
+        const actor = self.engine.Registry.getByID(id);
+        if (actor) |a| {
+            try a.inbox.send(message);
+        }
+    }
+
+    pub fn getCoroutineID(self: *const Self) i64 {
+        return self.scheduler.get_coroutine_id();
+    }
+    pub fn getLastCoroutineID(self: *const Self) i64 {
+        return self.scheduler.get_last_coroutine_id();
+    }
+    pub fn suspendRoutine(self: *const Self) void {
+        self.scheduler.suspend_routine();
+    }
+    pub fn resumeRoutine(self: *const Self, id: i64) void {
+        self.scheduler.resume_routine(id);
+    }
+    pub fn sleepRoutine(self: *const Self, ns: i64) void {
+        self.scheduler.sleep(ns);
+    }
+    pub fn yield(self: *const Self) void {
+        self.scheduler.yield();
+    }
+
+    pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.Registry.getByID(id);
     }
 
-    pub fn spawnChildActor(self: *@This(), comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
+    pub fn spawnChildActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
         actor.ctx.parent_actor = self.self;
         try self.child_actors.append(actor);

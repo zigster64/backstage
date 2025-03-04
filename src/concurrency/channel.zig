@@ -19,12 +19,13 @@ pub const Channel = struct {
         Empty,
     };
 
-    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) Error!Channel {
+    const Self = @This();
+    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) Error!Self {
         var chan: ?*c.neco_chan = undefined;
         const result = c.neco_chan_make(&chan, @sizeOf(T), capacity);
 
         return switch (result) {
-            c.NECO_OK => Channel{
+            c.NECO_OK => Self{
                 .allocator = allocator,
                 .chan = chan.?,
                 .data_size = @sizeOf(T),
@@ -36,11 +37,12 @@ pub const Channel = struct {
         };
     }
 
-    pub fn deinit(self: Channel) void {
+    pub fn deinit(self: *Self, allocator: Allocator) void {
         self.release() catch {};
+        allocator.destroy(self);
     }
 
-    pub fn retain(self: Channel) Error!void {
+    pub fn retain(self: Self) Error!void {
         const result = c.neco_chan_retain(self.chan);
         return switch (result) {
             c.NECO_OK => {},
@@ -50,7 +52,7 @@ pub const Channel = struct {
         };
     }
 
-    pub fn release(self: Channel) Error!void {
+    pub fn release(self: Self) Error!void {
         const result = c.neco_chan_release(self.chan);
         return switch (result) {
             c.NECO_OK => {},
@@ -60,10 +62,13 @@ pub const Channel = struct {
         };
     }
 
-    pub fn send(self: Channel, data: anytype) Error!void {
+    pub fn send(self: *const Self, data: anytype) Error!void {
+        // const heap_data = try self.allocator.create(u8);
+        // _ = heap_data;
         if (@sizeOf(@TypeOf(data)) != self.data_size) {
             return Error.InvalidParameter;
         }
+
         const result = c.neco_chan_send(self.chan, @ptrCast(@constCast(&data)));
         return switch (result) {
             c.NECO_OK => {},
@@ -75,7 +80,7 @@ pub const Channel = struct {
         };
     }
 
-    pub fn receive(self: Channel, data: anytype) Error!void {
+    pub fn receive(self: Self, data: anytype) Error!void {
         const T = @TypeOf(data.*);
 
         if (@sizeOf(T) != self.data_size) {
@@ -98,7 +103,7 @@ pub const Channel = struct {
         };
     }
 
-    pub fn tryReceive(self: Channel, data: anytype) Error!void {
+    pub fn tryReceive(self: Self, data: anytype) Error!void {
         if (@sizeOf(@TypeOf(data.*)) != self.data_size) {
             return Error.InvalidParameter;
         }
@@ -114,7 +119,7 @@ pub const Channel = struct {
         };
     }
 
-    pub fn broadcast(self: Channel, data: anytype) Error!usize {
+    pub fn broadcast(self: Self, data: anytype) Error!usize {
         if (@sizeOf(@TypeOf(data)) != self.data_size) {
             return Error.InvalidParameter;
         }
@@ -128,7 +133,7 @@ pub const Channel = struct {
         };
     }
 
-    pub fn close(self: Channel) Error!void {
+    pub fn close(self: Self) Error!void {
         const result = c.neco_chan_close(self.chan);
         return switch (result) {
             c.NECO_OK => {},

@@ -11,28 +11,34 @@ const CandlestickHolder = csHolder.CandlestickHolder;
 const CandlestickHolderMessage = csHolder.CandlestickHolderMessage;
 
 pub const CandlestickHolderManagerMessage = union(enum) {
-    start_holder: struct { id: []const u8 },
+    spawn_holder: struct { id: []const u8 },
+    start_all_holders: struct {},
 };
 
 pub const CandlestickManager = struct {
     ctx: *Context,
 
-    pub fn init(ctx: *Context, allocator: Allocator) !*@This() {
-        const self = try allocator.create(@This());
+    const Self = @This();
+    pub fn init(ctx: *Context, allocator: Allocator) !*Self {
+        const self = try allocator.create(Self);
         self.* = .{
             .ctx = ctx,
         };
         return self;
     }
 
-    pub fn receive(self: *@This(), message: *const CandlestickHolderManagerMessage) !void {
+    pub fn receive(self: *Self, message: *const CandlestickHolderManagerMessage) !void {
         switch (message.*) {
-            .start_holder => |m| {
-                std.debug.print("Starting holder manager with {s}\n", .{m.id});
+            .spawn_holder => |m| {
                 const holder = try self.ctx.spawnChildActor(CandlestickHolder, CandlestickHolderMessage, .{
                     .id = m.id,
                 });
-                try holder.send(CandlestickHolderMessage{ .init = .{ .ticker = "test" } });
+                try holder.send(CandlestickHolderMessage{ .init = .{ .ticker = m.id } });
+            },
+            .start_all_holders => |_| {
+                for (self.ctx.child_actors.items) |actor| {
+                    try actor.send(CandlestickHolderMessage{ .subscribe = .{} });
+                }
             },
         }
     }
