@@ -33,7 +33,7 @@ pub const ActorInterface = struct {
         const self = try allocator.create(Self);
         self.* = .{
             .ptr = actor_instance,
-            .inbox = try Inbox.init(allocator, MsgType, capacity),
+            .inbox = try Inbox.init(MsgType, capacity),
             .ctx = ctx,
             .receiveFnPtr = makeTypeErasedReceiveFn(ActorType, MsgType),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
@@ -45,8 +45,8 @@ pub const ActorInterface = struct {
         return self;
     }
 
-    pub fn deinit(self: *Self, allocator: Allocator) void {
-        self.inbox.deinit(allocator);
+    pub fn deinit(self: *Self) void {
+        self.inbox.deinit();
         self.deinitFnPtr(self.ptr);
     }
 

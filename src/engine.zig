@@ -34,7 +34,7 @@ pub const Engine = struct {
     pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         const ctx = try Context.init(self.allocator, self);
         const actor_interface = try ActorInterface.create(self.allocator, ctx, ActorType, MsgType, options.capacity);
-        errdefer actor_interface.deinit(self.allocator);
+        errdefer actor_interface.deinit();
 
         try self.Registry.add(options.id, MsgType, actor_interface);
         return actor_interface;
@@ -57,7 +57,8 @@ pub const Engine = struct {
         const actor = self.Registry.getByID(id);
 
         var message = original_message;
-        const ch = try Channel.init(self.allocator, ResultType, 1);
+        const ch = try Channel.init(ResultType, 1);
+        try ch.retain();
         switch (message) {
             .request => |*req| {
                 req.result = ch;

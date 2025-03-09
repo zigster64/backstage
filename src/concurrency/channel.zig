@@ -6,7 +6,6 @@ const c = @cImport({
 const Allocator = std.mem.Allocator;
 
 pub const Channel = struct {
-    allocator: Allocator,
     chan: *c.neco_chan,
     data_size: usize,
 
@@ -20,13 +19,12 @@ pub const Channel = struct {
     };
 
     const Self = @This();
-    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) Error!Self {
+    pub fn init(comptime T: type, capacity: usize) Error!Self {
         var chan: ?*c.neco_chan = undefined;
         const result = c.neco_chan_make(&chan, @sizeOf(T), capacity);
 
         return switch (result) {
             c.NECO_OK => Self{
-                .allocator = allocator,
                 .chan = chan.?,
                 .data_size = @sizeOf(T),
             },
@@ -37,9 +35,8 @@ pub const Channel = struct {
         };
     }
 
-    pub fn deinit(self: *Self, allocator: Allocator) void {
+    pub fn deinit(self: *Self) void {
         self.release() catch {};
-        allocator.destroy(self);
     }
 
     pub fn retain(self: Self) Error!void {

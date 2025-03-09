@@ -8,19 +8,19 @@ pub const Inbox = struct {
     chan: Channel,
 
     const Self = @This();
-    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) !Self {
+    pub fn init(comptime T: type, capacity: usize) !Self {
         // var chan = try Channel.init(T, capacity * @sizeOf(T));
 
-        var chan = try Channel.init(allocator, T, capacity);
-        errdefer chan.deinit(allocator);
+        var chan = try Channel.init(T, capacity);
+        errdefer chan.deinit();
         try chan.retain();
         return .{
             .chan = chan,
         };
     }
 
-    pub fn deinit(self: *Self, allocator: Allocator) void {
-        self.chan.deinit(allocator);
+    pub fn deinit(self: *Self) void {
+        self.chan.deinit();
     }
 
     pub fn send(self: *const Self, message: anytype) !void {

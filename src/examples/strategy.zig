@@ -36,12 +36,13 @@ pub const Strategy = struct {
             },
             .request => |_| {
                 std.debug.print("Request received\n", .{});
-                const res = try self.ctx.request("EUR_HKD", CandlestickHolderMessage{
+                var res = try self.ctx.request("EUR_HKD", CandlestickHolderMessage{
                     .request = Request(TestCandlestickRequest){
                         .payload = TestCandlestickRequest{ .id = "EUR_HKD" },
                         .result = undefined,
                     },
                 }, TestCandlestickResponse);
+                defer res.deinit();
                 var resp: TestCandlestickResponse = undefined;
                 _ = try res.receive(&resp);
                 std.debug.print("Response received: {any}\n", .{resp});
