@@ -7,3 +7,4 @@ pub const Actor = @import("actor.zig");
 pub const Message = @import("message.zig");
 pub const TypeUtils = @import("type_utils.zig");
 pub const Registry = @import("registry.zig").Registry;
+pub const Request = @import("request.zig").Request;

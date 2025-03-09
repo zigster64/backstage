@@ -37,7 +37,7 @@ pub const CandlestickManager = struct {
             },
             .start_all_holders => |_| {
                 for (self.ctx.child_actors.items) |actor| {
-                    try actor.send(CandlestickHolderMessage{ .subscribe = .{} });
+                    try actor.send(CandlestickHolderMessage{ .start = .{} });
                 }
             },
         }

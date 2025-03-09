@@ -37,17 +37,7 @@ pub fn mainRoutine(_: EmptyArgs) !void {
         .id = "holder_manager",
     });
 
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_EUR" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_GBP" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_JPY" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_CHF" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_AUD" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_CAD" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "USD_NZD" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_USD" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_GBP" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_JPY" } });
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_CHF" } });
+
     try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_HKD" } });
 
     try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .start_all_holders = .{} });
@@ -62,6 +52,7 @@ pub fn mainRoutine(_: EmptyArgs) !void {
 
     try strategy.send(StrategyMessage{ .init = .{} });
 
+    try strategy.send(StrategyMessage{ .request = .{} });
     const scheduler = Scheduler.init(null);
 
     scheduler.sleep(2000000000);

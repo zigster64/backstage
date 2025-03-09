@@ -5,16 +5,14 @@ const concurrency = alphazig.concurrency;
 
 const Allocator = std.mem.Allocator;
 const Context = alphazig.Context;
-
+const Request = alphazig.Request;
+const CandlestickHolderMessage = @import("candlestick_holder.zig").CandlestickHolderMessage;
+const TestCandlestickRequest = @import("candlestick_holder.zig").TestCandlestickRequest;
+const TestCandlestickResponse = @import("candlestick_holder.zig").TestCandlestickResponse;
 // This is an example of a message that can be sent to the CandlesticksActor.
 pub const StrategyMessage = union(enum) {
     init: struct {},
-    do_nothing: struct { some_field: i64 },
-    continue_routine: struct { some_field: SomeField },
-};
-// make some_field a more complex object which can't get stored on a global const section
-const SomeField = struct {
-    some_field: []const u8,
+    request: struct {},
 };
 
 pub const Strategy = struct {
@@ -34,20 +32,19 @@ pub const Strategy = struct {
     pub fn receive(self: *Self, message: *const StrategyMessage) !void {
         switch (message.*) {
             .init => |_| {
-                std.debug.print("Sending once\n", .{});
-                try self.ctx.send("not_processing_actor", StrategyMessage{ .do_nothing = .{ .some_field = 123 } });
-                try self.ctx.send("not_processing_actor", StrategyMessage{ .do_nothing = .{ .some_field = 123 } });
-                try self.ctx.send("not_processing_actor", StrategyMessage{ .do_nothing = .{ .some_field = 123 } });
-                try self.ctx.send("not_processing_actor", StrategyMessage{ .continue_routine = .{ .some_field = SomeField{ .some_field = "123" } } });
-                try self.ctx.send("not_processing_actor", StrategyMessage{ .continue_routine = .{ .some_field = SomeField{ .some_field = "123" } } });
-                std.debug.print("Sending twice\n", .{});
+                std.debug.print("Strategy initialized\n", .{});
             },
-            .do_nothing => |_| {
-                self.ctx.sleepRoutine(2000000000);
-            },
-            .continue_routine => |m| {
-                std.debug.print("Continuing routine {s}\n", .{m.some_field.some_field});
-                self.ctx.resumeRoutine(self.coroutine_id);
+            .request => |_| {
+                std.debug.print("Request received\n", .{});
+                const res = try self.ctx.request("EUR_HKD", CandlestickHolderMessage{
+                    .request = Request(TestCandlestickRequest){
+                        .payload = TestCandlestickRequest{ .id = "EUR_HKD" },
+                        .result = undefined,
+                    },
+                }, TestCandlestickResponse);
+                var resp: TestCandlestickResponse = undefined;
+                _ = try res.receive(&resp);
+                std.debug.print("Response received: {any}\n", .{resp});
             },
         }
     }

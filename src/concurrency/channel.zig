@@ -63,9 +63,11 @@ pub const Channel = struct {
     }
 
     pub fn send(self: *const Self, data: anytype) Error!void {
-        // const heap_data = try self.allocator.create(u8);
-        // _ = heap_data;
         if (@sizeOf(@TypeOf(data)) != self.data_size) {
+            std.log.err("Size mismatch: channel expects {d} bytes but got {d} bytes", .{
+                self.data_size,
+                @sizeOf(@TypeOf(data)),
+            });
             return Error.InvalidParameter;
         }
 
@@ -84,10 +86,6 @@ pub const Channel = struct {
         const T = @TypeOf(data.*);
 
         if (@sizeOf(T) != self.data_size) {
-            std.log.err("Size mismatch: channel expects {d} bytes but got {d} bytes", .{
-                self.data_size,
-                @sizeOf(T),
-            });
             return Error.InvalidParameter;
         }
 

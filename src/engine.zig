@@ -3,11 +3,13 @@ const act = @import("actor.zig");
 const msg = @import("message.zig");
 const actor_ctx = @import("context.zig");
 const std = @import("std");
-
+const chan = @import("concurrency/channel.zig");
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Context = actor_ctx.Context;
+const Channel = chan.Channel;
+const Request = @import("request.zig").Request;
 pub const SpawnActorOptions = struct {
     id: []const u8,
     capacity: usize = 1024,
@@ -51,10 +53,23 @@ pub const Engine = struct {
         }
     }
 
-    // pub fn request(self: *Engine, id: []const u8, message: MessageInterface) void {
-    //     const actor = self.Registry.get(id);
-    //     if (actor) |a| {
-    //         a.receive(message);
-    //     }
-    // }
+    pub fn request(self: *Engine, id: []const u8, original_message: anytype, comptime ResultType: type) !Channel {
+        const actor = self.Registry.getByID(id);
+
+        var message = original_message;
+        const ch = try Channel.init(self.allocator, ResultType, 1);
+        switch (message) {
+            .request => |*req| {
+                req.result = ch;
+            },
+            else => {
+                return error.InvalidMessageType;
+            },
+        }
+        if (actor) |a| {
+            try a.inbox.send(message);
+        }
+
+        return ch;
+    }
 };

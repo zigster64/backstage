@@ -3,14 +3,14 @@ const reg = @import("registry.zig");
 const act = @import("actor.zig");
 const eng = @import("engine.zig");
 const con = @import("concurrency/scheduler.zig");
-
+const chan = @import("concurrency/channel.zig");
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Engine = eng.Engine;
 const SpawnActorOptions = eng.SpawnActorOptions;
 const Scheduler = con.Scheduler;
-
+const Channel = chan.Channel;
 pub const Context = struct {
     engine: *Engine,
     scheduler: Scheduler,
@@ -32,12 +32,11 @@ pub const Context = struct {
     }
 
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
-        const actor = self.engine.Registry.getByID(id);
-        if (actor) |a| {
-            try a.inbox.send(message);
-        }
+        self.engine.send(id, message);
     }
-
+    pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !Channel {
+        return try self.engine.request(id, message, ResultType);
+    }
     pub fn getCoroutineID(self: *const Self) i64 {
         return self.scheduler.get_coroutine_id();
     }
