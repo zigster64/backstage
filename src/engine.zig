@@ -53,11 +53,13 @@ pub const Engine = struct {
         }
     }
 
-    pub fn request(self: *Engine, id: []const u8, original_message: anytype, comptime ResultType: type) !Channel {
+    pub fn request(self: *Engine, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
         const actor = self.Registry.getByID(id);
 
         var message = original_message;
-        const ch = try Channel.init(ResultType, 1);
+        var result: ResultType = undefined;
+
+        var ch = try Channel.init(ResultType, 1);
         try ch.retain();
         switch (message) {
             .request => |*req| {
@@ -70,7 +72,8 @@ pub const Engine = struct {
         if (actor) |a| {
             try a.inbox.send(message);
         }
-
-        return ch;
+        try ch.receive(&result);
+        ch.deinit();
+        return result;
     }
 };

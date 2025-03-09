@@ -67,7 +67,7 @@ pub const CandlestickHolder = struct {
             },
             .request => |m| {
                 // std.debug.print("m.result: {any}\n", .{m.result});
-                try m.result.send(TestCandlestickResponse{
+                try m.result.?.send(TestCandlestickResponse{
                     .open = 1,
                     .high = 2,
                     .low = 3,

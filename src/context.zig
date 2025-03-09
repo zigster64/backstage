@@ -34,7 +34,7 @@ pub const Context = struct {
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
         self.engine.send(id, message);
     }
-    pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !Channel {
+    pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !ResultType {
         return try self.engine.request(id, message, ResultType);
     }
     pub fn getCoroutineID(self: *const Self) i64 {
