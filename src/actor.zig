@@ -98,9 +98,9 @@ fn hasDeinitMethod(comptime T: type) bool {
         const FieldType = @TypeOf(field);
         const fieldInfo = @typeInfo(FieldType);
 
-        if (fieldInfo != .Fn) continue;
+        if (fieldInfo != .@"fn") continue;
 
-        const FnInfo = fieldInfo.Fn;
+        const FnInfo = fieldInfo.@"fn";
         if (FnInfo.params.len != 1) continue;
 
         const ParamType = FnInfo.params[0].type.?;

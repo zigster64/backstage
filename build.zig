@@ -1,5 +1,13 @@
 const std = @import("std");
 
+const BuildContext = struct {
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.Mode,
+    lib_module: *std.Build.Module,
+    websocket_dep: *std.Build.Dependency,
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -14,21 +22,29 @@ pub fn build(b: *std.Build) void {
     lib.addIncludePath(b.path("lib/boot_neco"));
     b.installArtifact(lib);
 
+    const websocket_dep = b.dependency("websocket", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const lib_module = b.addModule("alphazig", .{
         .root_source_file = .{ .cwd_relative = "src/root.zig" },
     });
 
+    const build_context = BuildContext{
+        .b = b,
+        .target = target,
+        .optimize = optimize,
+        .lib_module = lib_module,
+        .websocket_dep = websocket_dep,
+    };
     // Examples
     const examples = .{
         "example",
     };
 
     inline for (examples) |example| {
-        buildExample(b, example, .{
-            .target = target,
-            .optimize = optimize,
-            .lib_module = lib_module,
-        });
+        buildExample(b, example, build_context);
     }
 
     // Tests
@@ -58,11 +74,7 @@ pub fn build(b: *std.Build) void {
     }
 }
 
-fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: struct {
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    lib_module: *std.Build.Module,
-}) void {
+fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: BuildContext) void {
     const exe = b.addExecutable(.{
         .name = "alphazig-" ++ exampleName,
         .root_source_file = .{ .cwd_relative = "src/examples/" ++ exampleName ++ ".zig" },
@@ -71,7 +83,7 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: struct
     });
 
     exe.root_module.addImport("alphazig", options.lib_module);
-
+    exe.root_module.addImport("websocket", options.websocket_dep.module("websocket"));
     exe.linkSystemLibrary("c");
     addNeco(b, exe, options.lib_module);
     b.installArtifact(exe);

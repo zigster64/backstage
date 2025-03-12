@@ -1,10 +1,16 @@
 .{
-    .name = "alphazig",
+    .name = .alphazig,
+    .fingerprint = 0x2a003165f0cac025,
     .version = "0.1.0",
     .paths = .{
         "src",
         "build.zig",
         "build.zig.zon",
     },
-    .dependencies = .{},
+    .dependencies = .{
+        .websocket = .{
+            .url = "https://github.com/karlseguin/websocket.zig/archive/master.tar.gz",
+            .hash = "websocket-0.1.0-ZPISdXNIAwCXG7oHBj4zc1CfmZcDeyR6hfTEOo8_YI4r",
+        },
+    },
 }
