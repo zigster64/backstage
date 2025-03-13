@@ -6,9 +6,8 @@ const concurrency = alphazig.concurrency;
 const Allocator = std.mem.Allocator;
 const Context = alphazig.Context;
 const Request = alphazig.Request;
-const CandlestickHolderMessage = @import("candlestick_holder.zig").CandlestickHolderMessage;
-const TestCandlestickRequest = @import("candlestick_holder.zig").TestCandlestickRequest;
-const TestCandlestickResponse = @import("candlestick_holder.zig").TestCandlestickResponse;
+const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
+const TestOrderbookRequest = @import("orderbook_holder.zig").TestOrderbookRequest;
 // This is an example of a message that can be sent to the CandlesticksActor.
 pub const StrategyMessage = union(enum) {
     init: struct {},
@@ -29,18 +28,18 @@ pub const Strategy = struct {
         return self;
     }
 
-    pub fn receive(self: *Self, message: *const StrategyMessage) !void {
+    pub fn receive(_: *Self, message: *const StrategyMessage) !void {
         switch (message.*) {
             .init => |_| {
                 std.debug.print("Strategy initialized\n", .{});
             },
             .request => |_| {
-                const res = try self.ctx.request("EUR_HKD", CandlestickHolderMessage{
-                    .request = Request(TestCandlestickRequest){
-                        .payload = TestCandlestickRequest{ .id = "EUR_HKD" },
-                    },
-                }, TestCandlestickResponse);
-                std.debug.print("Response received: {any}\n", .{res});
+                // const res = try self.ctx.request("EUR_HKD", OrderbookHolderMessage{
+                //     .request = Request(TestOrderbookRequest){
+                //         .payload = TestOrderbookRequest{ .id = "EUR_HKD" },
+                //     },
+                // }, TestOrderbookResponse);
+                // std.debug.print("Response received: {any}\n", .{res});
             },
         }
     }

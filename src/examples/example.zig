@@ -2,8 +2,8 @@ const std = @import("std");
 const alphazig = @import("alphazig");
 const testing = std.testing;
 const concurrency = alphazig.concurrency;
-const csHolderManager = @import("candlestick_holder_manager.zig");
-const csHolder = @import("candlestick_holder.zig");
+const obHolderManager = @import("orderbook_holder_manager.zig");
+const obHolder = @import("orderbook_holder.zig");
 const strg = @import("strategy.zig");
 
 const Allocator = std.mem.Allocator;
@@ -15,12 +15,12 @@ const Scheduler = concurrency.Scheduler;
 const Channel = concurrency.Channel;
 const EmptyArgs = concurrency.EmptyArgs;
 
-const CandlestickHolderManager = csHolderManager.CandlestickManager;
-const CandlestickHolderManagerMessage = csHolderManager.CandlestickHolderManagerMessage;
-const CandlestickHolder = csHolder.CandlestickHolder;
-const CandlestickHolderMessage = csHolder.CandlestickHolderMessage;
+const OrderbookHolder = obHolder.OrderbookHolder;
+const OrderbookHolderMessage = obHolder.OrderbookHolderMessage;
 const Strategy = strg.Strategy;
 const StrategyMessage = strg.StrategyMessage;
+const OrderbookHolderManager = obHolderManager.OrderbookHolderManager;
+const OrderbookHolderManagerMessage = obHolderManager.OrderbookHolderManagerMessage;
 
 pub fn main() !void {
     concurrency.run(mainRoutine);
@@ -33,14 +33,14 @@ pub fn mainRoutine(_: EmptyArgs) !void {
     var engine = Engine.init(allocator);
     defer engine.deinit();
 
-    const candlestick_holder_manager = try engine.spawnActor(CandlestickHolderManager, CandlestickHolderManagerMessage, .{
+    const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
         .id = "holder_manager",
     });
 
 
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_HKD" } });
+    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_HKD" } });
 
-    try candlestick_holder_manager.send(CandlestickHolderManagerMessage{ .start_all_holders = .{} });
+    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .start_all_holders = .{} });
 
     const strategy = try engine.spawnActor(Strategy, StrategyMessage, .{
         .id = "strategy",

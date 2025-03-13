@@ -2,20 +2,20 @@ const std = @import("std");
 const alphazig = @import("alphazig");
 const testing = std.testing;
 const concurrency = alphazig.concurrency;
-const csHolder = @import("candlestick_holder.zig");
+const obHolder = @import("orderbook_holder.zig");
 
 const Allocator = std.mem.Allocator;
 const Context = alphazig.Context;
 
-const CandlestickHolder = csHolder.CandlestickHolder;
-const CandlestickHolderMessage = csHolder.CandlestickHolderMessage;
+const OrderbookHolder = obHolder.OrderbookHolder;
+const OrderbookHolderMessage = obHolder.OrderbookHolderMessage;
 
-pub const CandlestickHolderManagerMessage = union(enum) {
+pub const OrderbookHolderManagerMessage = union(enum) {
     spawn_holder: struct { id: []const u8 },
     start_all_holders: struct {},
 };
 
-pub const CandlestickManager = struct {
+pub const OrderbookHolderManager = struct {
     ctx: *Context,
 
     const Self = @This();
@@ -27,17 +27,17 @@ pub const CandlestickManager = struct {
         return self;
     }
 
-    pub fn receive(self: *Self, message: *const CandlestickHolderManagerMessage) !void {
+    pub fn receive(self: *Self, message: *const OrderbookHolderManagerMessage) !void {
         switch (message.*) {
             .spawn_holder => |m| {
-                const holder = try self.ctx.spawnChildActor(CandlestickHolder, CandlestickHolderMessage, .{
+                const holder = try self.ctx.spawnChildActor(OrderbookHolder, OrderbookHolderMessage, .{
                     .id = m.id,
                 });
-                try holder.send(CandlestickHolderMessage{ .init = .{ .ticker = m.id } });
+                try holder.send(OrderbookHolderMessage{ .init = .{ .ticker = m.id } });
             },
             .start_all_holders => |_| {
                 for (self.ctx.child_actors.items) |actor| {
-                    try actor.send(CandlestickHolderMessage{ .start = .{} });
+                    try actor.send(OrderbookHolderMessage{ .start = .{} });
                 }
             },
         }
