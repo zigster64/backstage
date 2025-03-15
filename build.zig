@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     // Create a **Static Library** for Alphazig
     const lib = b.addStaticLibrary(.{
         .name = "alphazig",
-        .root_source_file = .{ .cwd_relative = "src/root.zig" },
+        .root_source_file = b.path("src/root.zig"), 
         .target = target,
         .optimize = optimize,
     });
