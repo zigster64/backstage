@@ -16,12 +16,7 @@ pub fn Coroutine(comptime FnType: anytype) type {
             const ReturnType = FnInfo.return_type.?;
             if (@typeInfo(ReturnType) == .error_union) {
                 FnType(captured_args.*) catch |err| {
-                    // TODO Temporary logging
                     std.log.err("Coroutine function error: {s}", .{@errorName(err)});
-                    std.log.err("Function: {s}", .{@typeName(@TypeOf(FnType))});
-                    std.log.err("Arg type: {s}", .{@typeName(ArgType)});
-                    std.log.err("Return type: {s}", .{@typeName(ReturnType)});
-                    std.log.err("Args: {s}", .{@typeName(@TypeOf(captured_args.*))});
                 };
             } else {
                 FnType(captured_args.*);

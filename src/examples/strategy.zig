@@ -8,7 +8,8 @@ const Context = alphazig.Context;
 const Request = alphazig.Request;
 const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
 const TestOrderbookRequest = @import("orderbook_holder.zig").TestOrderbookRequest;
-// This is an example of a message that can be sent to the CandlesticksActor.
+const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
+
 pub const StrategyMessage = union(enum) {
     init: struct {},
     request: struct {},
@@ -28,18 +29,21 @@ pub const Strategy = struct {
         return self;
     }
 
-    pub fn receive(_: *Self, message: *const StrategyMessage) !void {
+    pub fn receive(self: *Self, message: *const StrategyMessage) !void {
         switch (message.*) {
             .init => |_| {
                 std.debug.print("Strategy initialized\n", .{});
             },
             .request => |_| {
-                // const res = try self.ctx.request("EUR_HKD", OrderbookHolderMessage{
-                //     .request = Request(TestOrderbookRequest){
-                //         .payload = TestOrderbookRequest{ .id = "EUR_HKD" },
-                //     },
-                // }, TestOrderbookResponse);
-                // std.debug.print("Response received: {any}\n", .{res});
+                while (true) {
+                    const res = try self.ctx.request("BTC/USD", OrderbookHolderMessage{
+                        .request = Request(TestOrderbookRequest){
+                            .payload = TestOrderbookRequest{ .id = "EUR_HKD" },
+                        },
+                    }, TestOrderbookResponse);
+                    std.debug.print("Response received: {s}\n", .{res.last_timestamp});
+                    self.ctx.yield();
+                }
             },
         }
     }

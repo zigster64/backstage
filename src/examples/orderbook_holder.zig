@@ -13,7 +13,7 @@ const SubscriptionRequest = kraken.SubscriptionRequest;
 const OrderbookMessage = kraken.SnapshotMessage;
 const deserialize_request = kraken.deserialize_request;
 const parseOrderbookMessage = kraken.parseOrderbookMessage;
-// This is an example of a message that can be sent to the OrderbookHolderActor.
+
 pub const OrderbookHolderMessage = union(enum) {
     init: struct { ticker: []const u8 },
     start: struct {},
@@ -23,22 +23,34 @@ pub const OrderbookHolderMessage = union(enum) {
 pub const TestOrderbookRequest = struct {
     id: []const u8,
 };
+pub const TestOrderbookResponse = struct {
+    last_timestamp: []const u8,
+};
 
 pub const OrderbookHolder = struct {
     allocator: Allocator,
+    arena: std.heap.ArenaAllocator,
     ticker: []const u8 = "",
     ws_client: ws.Client,
     ctx: *Context,
+    last_timestamp: []const u8 = "",
     const Self = @This();
     pub fn init(ctx: *Context, allocator: Allocator) !*Self {
         const self = try allocator.create(Self);
+
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        errdefer arena.deinit();
+
         var client = try ws.Client.init(allocator, .{ .host = "ws.kraken.com", .port = 443, .tls = true });
         try client.handshake("/v2", .{
             .timeout_ms = 5000,
             .headers = "Host: ws.kraken.com\r\nOrigin: https://www.kraken.com",
         });
+        errdefer client.deinit();
+
         self.* = .{
             .allocator = allocator,
+            .arena = arena,
             .ctx = ctx,
             .ws_client = client,
         };
@@ -46,6 +58,7 @@ pub const OrderbookHolder = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        self.arena.deinit();
         self.ws_client.deinit();
     }
 
@@ -61,40 +74,33 @@ pub const OrderbookHolder = struct {
                     .method = "subscribe",
                     .params = .{
                         .channel = "book",
-                        .symbol = &[_][]const u8{"BTC/USD"},
+                        .symbol = &[_][]const u8{self.ticker},
                     },
                 }, &buffer);
                 try self.ws_client.write(req);
                 Coroutine(listenToOrderbook).go(self);
             },
-            .request => |_| {},
+            .request => |req| {
+                try req.result.?.send(TestOrderbookResponse{ .last_timestamp = self.last_timestamp });
+            },
         }
     }
-    // TODO Use Arena allocator
+
     fn listenToOrderbook(self: *Self) !void {
         while (true) {
             const ws_msg = try self.ws_client.read();
             if (ws_msg) |msg| {
-                const orderbook_message = try parseOrderbookMessage(msg.data, self.allocator);
-                switch (orderbook_message) {
-                    .heartbeat => |heartbeat| {
-                        std.debug.print("Heartbeat message: {}\n", .{heartbeat});
-                    },
-                    .status => |status| {
-                        std.debug.print("Status message: {}\n", .{status});
-                    },
-                    .pong => |pong| {
-                        std.debug.print("Pong message: {}\n", .{pong});
-                    },
-                    .snapshot => |snapshot| {
-                        std.debug.print("Orderbook message: {}\n", .{snapshot});
-                    },
-                    .update => |update| {
-                        std.debug.print("Update message: {}\n", .{update});
-                    },
-                    .subscribe => |subscribe| {
-                        std.debug.print("Subscribe message: {}\n", .{subscribe});
-                    },
+                const orderbook_message = try parseOrderbookMessage(msg.data, self.arena.allocator());
+                if (orderbook_message) |message| {
+                    switch (message) {
+                        .snapshot => |snapshot| {
+                            std.debug.print("Orderbook message: {}\n", .{snapshot});
+                        },
+                        .update => |update| {
+                            std.debug.print("Update message: {}\n", .{update});
+                            self.last_timestamp = update.data[0].timestamp.?;
+                        },
+                    }
                 }
             }
             self.ctx.yield();

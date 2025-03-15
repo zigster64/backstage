@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
         .lib_module = lib_module,
         .websocket_dep = websocket_dep,
     };
-    // Examples
+
     const examples = .{
         "example",
     };
@@ -58,7 +58,6 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_lib_tests.step);
 
-    // Example tests
     inline for (examples) |example| {
         const example_tests = b.addTest(.{
             .root_source_file = .{ .cwd_relative = "src/examples/" ++ example ++ ".zig" },
@@ -95,7 +94,6 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: BuildC
 }
 
 fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.Module) void {
-    // Neco - coroutines
     const necoCFlags = &.{
         "-std=c11",
         "-O0",
@@ -107,25 +105,12 @@ fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.M
         "-pedantic",
         "-Werror",
         "-fno-omit-frame-pointer",
-        //"-fsanitize=address",
-        //"-Wall",
-        //"-Wextra",
-        //"-O0", // No optimizations at all (used for debugging bruh)...later remove this.
-
-        // RC: Some build errors are simply because compiler is too strict, need to loosen the error requirements.
-        //"-Wunused-parameter",
-        //"-Wzero-length-array",
     };
-    // Not sure if this is needed.
-    // exe.addIncludePath(b.path("lib/neco"));
-    // exe.addIncludePath(b.path("lib/boot_neco"));
+
     lib_module.addIncludePath(b.path("lib/neco"));
     lib_module.addIncludePath(b.path("lib/boot_neco"));
     exe.addCSourceFile(.{
         .file = b.path("lib/neco/neco.c"),
         .flags = necoCFlags,
     });
-
-    // Maybe needed?
-    // exe.defineCMacro("SCO_QUICKSTART", "1");
 }

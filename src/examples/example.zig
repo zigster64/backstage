@@ -26,7 +26,6 @@ pub fn main() !void {
     concurrency.run(mainRoutine);
 }
 pub fn mainRoutine(_: EmptyArgs) !void {
-    // ctx.add(1);
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
@@ -36,27 +35,15 @@ pub fn mainRoutine(_: EmptyArgs) !void {
     const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
         .id = "holder_manager",
     });
-
-
-    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "EUR_HKD" } });
-
+    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "BTC/USD" } });
     try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .start_all_holders = .{} });
 
     const strategy = try engine.spawnActor(Strategy, StrategyMessage, .{
         .id = "strategy",
     });
-
-    _ = try engine.spawnActor(Strategy, StrategyMessage, .{
-        .id = "not_processing_actor",
-    });
-
     try strategy.send(StrategyMessage{ .init = .{} });
-
     try strategy.send(StrategyMessage{ .request = .{} });
-    const scheduler = Scheduler.init(null);
-
-    scheduler.sleep(2000000000);
-
-    scheduler.suspend_routine();
-    std.debug.print("OUT OF SCOPE\n", .{});
+    
+    // This is only done to permanently suspend the main routine so it doesn't run out of scope.
+    strategy.ctx.suspendRoutine();
 }
