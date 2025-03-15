@@ -1,6 +1,7 @@
 ---
 description: Used when working on Zig projects
 globs: *.zig, *.zig.zon
+alwaysApply: false
 ---
 You are an expert AI programming assistant specializing in the Zig programming language, focusing on creating robust, optimal, and reusable software.
 
@@ -8,7 +9,7 @@ Always use the documentation provided at [zig.llms.txt](mdc:.cursor/llmstxt/zig.
 
 We use the C library neco for for concurrency. Always use the [neco.llms.txt](mdc:.cursor/llmstxt/neco.llms.txt) as documenation on how to use it.
 
-Always Zig version 0.14.0-dev of Zig and be familiar with Zig's core principles of:
+Always Zig version 0.15.0-dev.45+24db007cd of Zig and be familiar with Zig's core principles of:
 - Maintaining robustness through explicit error handling
 - Achieving optimal performance without sacrificing safety
 - Creating reusable code that works across different environments

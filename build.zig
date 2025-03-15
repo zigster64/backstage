@@ -84,16 +84,16 @@ fn addNeco(b: *std.Build, step: *std.Build.Step.Compile) void {
 // This function allows other projects to use your library
 pub fn addAlphaZigPackage(b: *std.Build, step: *std.Build.Step.Compile) void {
     const target = step.root_module.resolved_target.?;
-    const optimize = step.root_module.optimize;
+    const optimize = step.root_module.optimize orelse .Debug;
 
     // Get the module
-    const alphazig_mod = b.dependency("alphazig", .{
+    const alphazig_dep = b.dependency("alphazig", .{
         .target = target,
         .optimize = optimize,
-    }).module("alphazig");
+    });
 
     // Add the module to the step
-    step.root_module.addImport("alphazig", alphazig_mod);
+    step.root_module.addImport("alphazig", alphazig_dep.module("alphazig"));
 
     // Add the Neco C library
     addNeco(b, step);
