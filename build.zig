@@ -66,10 +66,8 @@ fn addNeco(b: *std.Build, step: *std.Build.Step.Compile) void {
 
     // Use proper paths that will work when used as a dependency
     const neco_dir = b.path("lib/neco");
-    const boot_neco_dir = b.path("lib/boot_neco");
 
     step.addIncludePath(neco_dir);
-    step.addIncludePath(boot_neco_dir);
 
     // Add the C source file
     step.addCSourceFile(.{
@@ -95,6 +93,31 @@ pub fn addAlphaZigPackage(b: *std.Build, step: *std.Build.Step.Compile) void {
     // Add the module to the step
     step.root_module.addImport("alphazig", alphazig_dep.module("alphazig"));
 
-    // Add the Neco C library
-    addNeco(b, step);
+    // Add the Neco C library with paths relative to the dependency
+    const necoCFlags = &.{
+        "-std=c11",
+        "-O0",
+        "-g3",
+        "-Wall",
+        "-Wextra",
+        "-fstrict-aliasing",
+        "-DLLCO_NOUNWIND",
+        "-pedantic",
+        "-Werror",
+        "-fno-omit-frame-pointer",
+    };
+
+    // Get the path to the neco directory in the dependency
+    const neco_dir = alphazig_dep.path("lib/neco");
+
+    step.addIncludePath(neco_dir);
+
+    // Add the C source file from the dependency
+    step.addCSourceFile(.{
+        .file = alphazig_dep.path("lib/neco/neco.c"),
+        .flags = necoCFlags,
+    });
+
+    // Make sure the C library is properly linked
+    step.linkLibC();
 }
