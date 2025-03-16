@@ -14,7 +14,6 @@ pub fn build(b: *std.Build) void {
     });
     alphazig_mod.linkLibrary(alphazig_lib);
 
-    // Examples
     const examples = .{
         "example",
     };
@@ -44,7 +43,6 @@ fn buildLibAlphaZig(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile
 
     b.installArtifact(lib);
 
-    // Add Neco C sources
     const necoCFlags = &.{
         "-std=c11",
         "-O0",
@@ -86,16 +84,7 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: Exampl
     exe.root_module.addImport("alphazig", options.alphazig_mod);
     exe.root_module.addImport("websocket", websocket_dep.module("websocket"));
     exe.linkSystemLibrary("c");
-    addNeco(b, exe, options.alphazig_mod);
-    b.installArtifact(exe);
 
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-
-    b.step("run-" ++ exampleName, "Run example " ++ exampleName).dependOn(&run_cmd.step);
-}
-
-fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.Module) void {
     const necoCFlags = &.{
         "-std=c11",
         "-O0",
@@ -109,9 +98,15 @@ fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.M
         "-fno-omit-frame-pointer",
     };
 
-    lib_module.addIncludePath(b.path("lib/neco"));
+    options.alphazig_mod.addIncludePath(b.path("lib/neco"));
     exe.addCSourceFile(.{
         .file = b.path("lib/neco/neco.c"),
         .flags = necoCFlags,
     });
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    b.step("run-" ++ exampleName, "Run example " ++ exampleName).dependOn(&run_cmd.step);
 }
