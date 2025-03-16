@@ -1,2 +1,5 @@
 lib/* linguist-detectable=false
 lib/neco/* linguist-detectable=false
+*.c linguist-detectable=false
+*.h linguist-detectable=false
+*.go linguist-detectable=false
