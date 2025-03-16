@@ -55,11 +55,12 @@ pub const Context = struct {
     pub fn yield(self: *const Self) void {
         self.scheduler.yield();
     }
-
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.Registry.getByID(id);
     }
-
+    pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
+        return try self.engine.spawnActor(ActorType, MsgType, options);
+    }
     pub fn spawnChildActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
         actor.ctx.parent_actor = self.self;
