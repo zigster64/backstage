@@ -1,4 +1,2 @@
 lib/* linguist-detectable=false
-lib/ linguist-detectable=false
-lib linguist-detectable=false
-lib -export-ignore
+lib/neco/* linguist-detectable=false
