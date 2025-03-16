@@ -41,7 +41,10 @@ fn buildLibAlphaZig(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile
     });
     lib.addIncludePath(b.path("lib/neco"));
     lib.installHeadersDirectory(b.path("lib/neco"), "neco", .{});
-      // Add Neco C sources
+
+    b.installArtifact(lib);
+
+    // Add Neco C sources
     const necoCFlags = &.{
         "-std=c11",
         "-O0",
@@ -54,14 +57,13 @@ fn buildLibAlphaZig(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile
         "-Werror",
         "-fno-omit-frame-pointer",
     };
-    
+
     lib.addIncludePath(b.path("lib/neco"));
     lib.addCSourceFile(.{
         .file = b.path("lib/neco/neco.c"),
         .flags = necoCFlags,
     });
 
-    b.installArtifact(lib);
     return lib;
 }
 
