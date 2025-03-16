@@ -1,2 +1,4 @@
 lib/* linguist-detectable=false
+lib/ linguist-detectable=false
+lib linguist-detectable=false
 lib -export-ignore
