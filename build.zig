@@ -1,43 +1,101 @@
 const std = @import("std");
 
+const BuildContext = struct {
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.Mode,
+    lib_module: *std.Build.Module,
+    websocket_dep: *std.Build.Dependency,
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Create the module
-    const alphazig_mod = b.addModule("alphazig", .{
-        .root_source_file = b.path("src/root.zig"),
+    const lib = b.addStaticLibrary(.{
+        .name = "alphazig",
+        .root_source_file = .{ .cwd_relative = "src/root.zig" },
         .target = target,
         .optimize = optimize,
     });
+    lib.addIncludePath(b.path("lib/neco"));
+    lib.addIncludePath(b.path("lib/boot_neco"));
+    b.installArtifact(lib);
 
-    // Add the websocket dependency
     const websocket_dep = b.dependency("websocket", .{
         .target = target,
         .optimize = optimize,
     });
-    alphazig_mod.addImport("websocket", websocket_dep.module("websocket"));
 
-    // Create a static library
-    const lib = b.addStaticLibrary(.{
-        .name = "alphazig",
-        .root_source_file = b.path("src/root.zig"),
+    const lib_module = b.addModule("alphazig", .{
+        .root_source_file = .{ .cwd_relative = "src/root.zig" },
+    });
+
+    const build_context = BuildContext{
+        .b = b,
+        .target = target,
+        .optimize = optimize,
+        .lib_module = lib_module,
+        .websocket_dep = websocket_dep,
+    };
+    // Examples
+    const examples = .{
+        "example",
+    };
+
+    inline for (examples) |example| {
+        buildExample(b, example, build_context);
+    }
+
+    // Tests
+    const lib_tests = b.addTest(.{
+        .root_source_file = .{ .cwd_relative = "src/root.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    // Add the module to the library
-    lib.root_module.addImport("websocket", websocket_dep.module("websocket"));
+    const run_lib_tests = b.addRunArtifact(lib_tests);
+    const test_step = b.step("test", "Run library tests");
+    test_step.dependOn(&run_lib_tests.step);
 
-    // Add C sources from Neco
-    addNeco(b, lib);
+    // Example tests
+    inline for (examples) |example| {
+        const example_tests = b.addTest(.{
+            .root_source_file = .{ .cwd_relative = "src/examples/" ++ example ++ ".zig" },
+            .target = target,
+            .optimize = optimize,
+        });
+        example_tests.root_module.addImport("alphazig", lib_module);
 
-    // Install the library
-    b.installArtifact(lib);
+        const run_example_tests = b.addRunArtifact(example_tests);
+        const example_test_step = b.step("test-" ++ example, "Run " ++ example ++ " example tests");
+        example_test_step.dependOn(&run_example_tests.step);
+        test_step.dependOn(example_test_step);
+    }
 }
 
-// Function to add Neco C source files and configuration
-fn addNeco(b: *std.Build, step: *std.Build.Step.Compile) void {
+fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: BuildContext) void {
+    const exe = b.addExecutable(.{
+        .name = "alphazig-" ++ exampleName,
+        .root_source_file = .{ .cwd_relative = "src/examples/" ++ exampleName ++ ".zig" },
+        .target = options.target,
+        .optimize = options.optimize,
+    });
+
+    exe.root_module.addImport("alphazig", options.lib_module);
+    exe.root_module.addImport("websocket", options.websocket_dep.module("websocket"));
+    exe.linkSystemLibrary("c");
+    addNeco(b, exe, options.lib_module);
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    b.step("run-" ++ exampleName, "Run example " ++ exampleName).dependOn(&run_cmd.step);
+}
+
+fn addNeco(b: *std.Build, exe: *std.Build.Step.Compile, lib_module: *std.Build.Module) void {
+    // Neco - coroutines
     const necoCFlags = &.{
         "-std=c11",
         "-O0",
@@ -49,21 +107,25 @@ fn addNeco(b: *std.Build, step: *std.Build.Step.Compile) void {
         "-pedantic",
         "-Werror",
         "-fno-omit-frame-pointer",
+        //"-fsanitize=address",
+        //"-Wall",
+        //"-Wextra",
+        //"-O0", // No optimizations at all (used for debugging bruh)...later remove this.
+
+        // RC: Some build errors are simply because compiler is too strict, need to loosen the error requirements.
+        //"-Wunused-parameter",
+        //"-Wzero-length-array",
     };
-
-    // Use proper paths
-    const neco_dir = b.path("lib/neco");
-    const boot_neco_dir = b.path("lib/boot_neco");
-
-    step.addIncludePath(neco_dir);
-    step.addIncludePath(boot_neco_dir);
-
-    // Add the C source file
-    step.addCSourceFile(.{
+    // Not sure if this is needed.
+    // exe.addIncludePath(b.path("lib/neco"));
+    // exe.addIncludePath(b.path("lib/boot_neco"));
+    lib_module.addIncludePath(b.path("lib/neco"));
+    lib_module.addIncludePath(b.path("lib/boot_neco"));
+    exe.addCSourceFile(.{
         .file = b.path("lib/neco/neco.c"),
         .flags = necoCFlags,
     });
 
-    // Ensure the C library is linked
-    step.linkLibC();
+    // Maybe needed?
+    // exe.defineCMacro("SCO_QUICKSTART", "1");
 }
