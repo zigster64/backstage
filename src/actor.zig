@@ -3,6 +3,7 @@ const inbox = @import("inbox.zig");
 const concurrency = @import("concurrency/root.zig");
 const eng = @import("engine.zig");
 const ctxt = @import("context.zig");
+const envlp = @import("envelope.zig");
 
 const Allocator = std.mem.Allocator;
 const Inbox = inbox.Inbox;
@@ -10,6 +11,7 @@ const Coroutine = concurrency.Coroutine;
 const Scheduler = concurrency.Scheduler;
 const Engine = eng.Engine;
 const Context = ctxt.Context;
+const Envelope = envlp.Envelope;
 
 pub const ActorInterface = struct {
     ptr: *anyopaque,
@@ -51,7 +53,7 @@ pub const ActorInterface = struct {
     }
 
     pub fn send(self: *const Self, msg: anytype) !void {
-        try self.inbox.send(msg);
+        try self.inbox.send(Envelope(@TypeOf(msg)).init(self, msg));
     }
 };
 

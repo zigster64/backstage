@@ -9,6 +9,7 @@ const Request = alphazig.Request;
 const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
 const TestOrderbookRequest = @import("orderbook_holder.zig").TestOrderbookRequest;
 const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
+const Envelope = alphazig.Envelope;
 
 pub const StrategyMessage = union(enum) {
     init: struct {},
@@ -29,8 +30,8 @@ pub const Strategy = struct {
         return self;
     }
 
-    pub fn receive(self: *Self, message: *const StrategyMessage) !void {
-        switch (message.*) {
+    pub fn receive(self: *Self, message: *const Envelope(StrategyMessage)) !void {
+        switch (message.payload) {
             .init => |_| {
                 std.debug.print("Strategy initialized\n", .{});
             },

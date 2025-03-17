@@ -3,12 +3,11 @@ const alphazig = @import("alphazig");
 const testing = std.testing;
 const concurrency = alphazig.concurrency;
 const obHolder = @import("orderbook_holder.zig");
-
 const Allocator = std.mem.Allocator;
 const Context = alphazig.Context;
-
 const OrderbookHolder = obHolder.OrderbookHolder;
 const OrderbookHolderMessage = obHolder.OrderbookHolderMessage;
+const Envelope = alphazig.Envelope;
 
 pub const OrderbookHolderManagerMessage = union(enum) {
     spawn_holder: struct { id: []const u8 },
@@ -27,8 +26,8 @@ pub const OrderbookHolderManager = struct {
         return self;
     }
 
-    pub fn receive(self: *Self, message: *const OrderbookHolderManagerMessage) !void {
-        switch (message.*) {
+    pub fn receive(self: *Self, message: *const Envelope(OrderbookHolderManagerMessage)) !void {
+        switch (message.payload) {
             .spawn_holder => |m| {
                 const holder = try self.ctx.spawnChildActor(OrderbookHolder, OrderbookHolderMessage, .{
                     .id = m.id,

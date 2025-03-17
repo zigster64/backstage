@@ -10,9 +10,9 @@ const Context = alphazig.Context;
 const Request = alphazig.Request;
 const serialize_request = kraken.serialize_request;
 const SubscriptionRequest = kraken.SubscriptionRequest;
-const OrderbookMessage = kraken.SnapshotMessage;
 const deserialize_request = kraken.deserialize_request;
 const parseOrderbookMessage = kraken.parseOrderbookMessage;
+const Envelope = alphazig.Envelope;
 
 pub const OrderbookHolderMessage = union(enum) {
     init: struct { ticker: []const u8 },
@@ -62,8 +62,8 @@ pub const OrderbookHolder = struct {
         self.ws_client.deinit();
     }
 
-    pub fn receive(self: *Self, message: *const OrderbookHolderMessage) !void {
-        switch (message.*) {
+    pub fn receive(self: *Self, message: *const Envelope(OrderbookHolderMessage)) !void {
+        switch (message.payload) {
             .init => |m| {
                 std.debug.print("Starting holder {s}\n", .{m.ticker});
                 self.ticker = m.ticker;
