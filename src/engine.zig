@@ -41,13 +41,13 @@ pub const Engine = struct {
         return actor_interface;
     }
 
-    pub fn send(self: *Self, sender: *ActorInterface, id: []const u8, message: anytype) !void {
+    pub fn send(self: *Self, sender: *?ActorInterface, id: []const u8, message: anytype) !void {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
             try a.inbox.send(Envelope(@TypeOf(message)).init(sender, message));
         }
     }
-    pub fn broadcast(self: *Self, sender: *ActorInterface, message: anytype) !void {
+    pub fn broadcast(self: *Self, sender: *?ActorInterface, message: anytype) !void {
         const actor = self.Registry.getByMessageType(message);
         if (actor) |a| {
             try a.inbox.send(Envelope(@TypeOf(message)).init(sender, message));
