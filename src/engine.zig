@@ -44,17 +44,17 @@ pub const Engine = struct {
     pub fn send(self: *Self, sender: ?*const ActorInterface, id: []const u8, message: anytype) !void {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
-            try a.inbox.send(Envelope(@TypeOf(message)).init(sender, message));
+            try a.send(sender, message);
         }
     }
     pub fn broadcast(self: *Self, sender: ?*const ActorInterface, message: anytype) !void {
         const actor = self.Registry.getByMessageType(message);
         if (actor) |a| {
-            try a.inbox.send(Envelope(@TypeOf(message)).init(sender, message));
+            try a.send(sender, message);
         }
     }
 
-    pub fn request(self: *Engine, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
+    pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
         const actor = self.Registry.getByID(id);
 
         var message = original_message;
@@ -71,7 +71,7 @@ pub const Engine = struct {
             },
         }
         if (actor) |a| {
-            try a.inbox.send(message);
+            try a.send(sender, message);
         }
         try ch.receive(&result);
         ch.deinit();

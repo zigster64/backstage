@@ -40,7 +40,7 @@ pub const ActorInterface = struct {
             .receiveFnPtr = makeTypeErasedReceiveFn(ActorType, MsgType),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
         };
-        ctx.self = self;
+        ctx.actor = self;
 
         Coroutine(makeRoutineFn(MsgType)).go(self);
 
@@ -52,8 +52,8 @@ pub const ActorInterface = struct {
         self.deinitFnPtr(self.ptr);
     }
 
-    pub fn send(self: *const Self, msg: anytype) !void {
-        try self.inbox.send(Envelope(@TypeOf(msg)).init(self, msg));
+    pub fn send(self: *const Self, sender: ?*const ActorInterface, msg: anytype) !void {
+        try self.inbox.send(Envelope(@TypeOf(msg)).init(sender, msg));
     }
 };
 

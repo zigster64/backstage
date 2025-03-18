@@ -14,7 +14,7 @@ const Channel = chan.Channel;
 pub const Context = struct {
     engine: *Engine,
     scheduler: Scheduler,
-    self: *ActorInterface,
+    actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
     child_actors: std.ArrayList(*ActorInterface),
 
@@ -26,16 +26,16 @@ pub const Context = struct {
             .child_actors = std.ArrayList(*ActorInterface).init(allocator),
             .scheduler = Scheduler.init(null),
             .parent_actor = null,
-            .self = undefined,
+            .actor = undefined,
         };
         return self;
     }
 
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
-        self.engine.send(id, message);
+        self.engine.send(self.actor, id, message);
     }
     pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !ResultType {
-        return try self.engine.request(id, message, ResultType);
+        return try self.engine.request(self.actor, id, message, ResultType);
     }
     pub fn getCoroutineID(self: *const Self) i64 {
         return self.scheduler.get_coroutine_id();
@@ -63,7 +63,7 @@ pub const Context = struct {
     }
     pub fn spawnChildActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
-        actor.ctx.parent_actor = self.self;
+        actor.ctx.parent_actor = self.actor;
         try self.child_actors.append(actor);
         return actor;
     }

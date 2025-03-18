@@ -32,11 +32,11 @@ pub const OrderbookHolderManager = struct {
                 const holder = try self.ctx.spawnChildActor(OrderbookHolder, OrderbookHolderMessage, .{
                     .id = m.id,
                 });
-                try holder.send(OrderbookHolderMessage{ .init = .{ .ticker = m.id } });
+                try holder.send(self.ctx.actor,OrderbookHolderMessage{ .init = .{ .ticker = m.id } });
             },
             .start_all_holders => |_| {
                 for (self.ctx.child_actors.items) |actor| {
-                    try actor.send(OrderbookHolderMessage{ .start = .{} });
+                    try actor.send(self.ctx.actor, OrderbookHolderMessage{ .start = .{} });
                 }
             },
         }

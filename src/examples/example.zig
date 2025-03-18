@@ -35,14 +35,14 @@ pub fn mainRoutine(_: EmptyArgs) !void {
     const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
         .id = "holder_manager",
     });
-    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "BTC/USD" } });
-    try orderbook_holder_manager.send(OrderbookHolderManagerMessage{ .start_all_holders = .{} });
+    try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "BTC/USD" } });
+    try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .start_all_holders = .{} });
 
     const strategy = try engine.spawnActor(Strategy, StrategyMessage, .{
         .id = "strategy",
     });
-    try strategy.send(StrategyMessage{ .init = .{} });
-    try strategy.send(StrategyMessage{ .request = .{} });
+    try strategy.send(null, StrategyMessage{ .init = .{} });
+    try strategy.send(null, StrategyMessage{ .request = .{} });
     
     // This is only done to permanently suspend the main routine so it doesn't run out of scope.
     strategy.ctx.suspendRoutine();
