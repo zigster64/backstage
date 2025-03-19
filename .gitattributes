@@ -1,1 +1,2 @@
 /lib/** linguist-detectable=false
+/zig-out/** linguist-detectable=false
