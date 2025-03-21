@@ -1,18 +1,18 @@
 const std = @import("std");
-const alphazig = @import("alphazig");
+const backstage = @import("backstage");
 const testing = std.testing;
 const ws = @import("websocket");
-const concurrency = alphazig.concurrency;
+const concurrency = backstage.concurrency;
 const kraken = @import("kraken.zig");
 const Coroutine = concurrency.Coroutine;
 const Allocator = std.mem.Allocator;
-const Context = alphazig.Context;
-const Request = alphazig.Request;
+const Context = backstage.Context;
+const Request = backstage.Request;
 const serialize_request = kraken.serialize_request;
 const SubscriptionRequest = kraken.SubscriptionRequest;
 const deserialize_request = kraken.deserialize_request;
 const parseOrderbookMessage = kraken.parseOrderbookMessage;
-const Envelope = alphazig.Envelope;
+const Envelope = backstage.Envelope;
 
 pub const OrderbookHolderMessage = union(enum) {
     init: struct { ticker: []const u8 },

@@ -4,15 +4,15 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const alphazig_mod = b.addModule("alphazig", .{
+    const backstage_mod = b.addModule("backstage", .{
         .root_source_file = b.path("src/root.zig"),
     });
 
-    const alphazig_lib = try buildLibAlphaZig(b, .{
+    const backstage_lib = try buildLibbackstage(b, .{
         .target = target,
         .optimize = optimize,
     });
-    alphazig_mod.linkLibrary(alphazig_lib);
+    backstage_mod.linkLibrary(backstage_lib);
 
     const examples = .{
         "example",
@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
         buildExample(b, example, .{
             .target = target,
             .optimize = optimize,
-            .alphazig_mod = alphazig_mod,
+            .backstage_mod = backstage_mod,
         });
     }
 }
@@ -31,9 +31,9 @@ const LibOptions = struct {
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.Mode,
 };
-fn buildLibAlphaZig(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile {
+fn buildLibbackstage(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile {
     const lib = b.addStaticLibrary(.{
-        .name = "alphazig",
+        .name = "backstage",
         .target = options.target,
         .optimize = options.optimize,
         .link_libc = true,
@@ -68,11 +68,11 @@ fn buildLibAlphaZig(b: *std.Build, options: LibOptions) !*std.Build.Step.Compile
 const ExampleOptions = struct {
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.Mode,
-    alphazig_mod: *std.Build.Module,
+    backstage_mod: *std.Build.Module,
 };
 fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: ExampleOptions) void {
     const exe = b.addExecutable(.{
-        .name = "alphazig-" ++ exampleName,
+        .name = "backstage-" ++ exampleName,
         .root_source_file = .{ .cwd_relative = "src/examples/" ++ exampleName ++ ".zig" },
         .target = options.target,
         .optimize = options.optimize,
@@ -81,7 +81,7 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: Exampl
         .target = options.target,
         .optimize = options.optimize,
     });
-    exe.root_module.addImport("alphazig", options.alphazig_mod);
+    exe.root_module.addImport("backstage", options.backstage_mod);
     exe.root_module.addImport("websocket", websocket_dep.module("websocket"));
     exe.linkSystemLibrary("c");
 
@@ -98,7 +98,7 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: Exampl
         "-fno-omit-frame-pointer",
     };
 
-    options.alphazig_mod.addIncludePath(b.path("lib/neco"));
+    options.backstage_mod.addIncludePath(b.path("lib/neco"));
     exe.addCSourceFile(.{
         .file = b.path("lib/neco/neco.c"),
         .flags = necoCFlags,

@@ -1,6 +1,6 @@
 .{
-    .name = .alphazig,
-    .fingerprint = 0x2a003165f0cac025,
+    .name = .backstage,
+    .fingerprint = 0x54eed03c6cbad82e,
     .version = "0.1.0",
     .paths = .{
         "src",

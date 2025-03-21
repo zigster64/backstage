@@ -32,4 +32,4 @@ This is an early-stage implementation, focusing on core actor framework concepts
 
 ## Archive module
 
-git archive --format=tar.gz --output=alphazig.tar.gz HEAD
+git archive --format=tar.gz --output=backstage.tar.gz HEAD
