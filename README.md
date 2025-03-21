@@ -28,8 +28,3 @@ This is an early-stage implementation, focusing on core actor framework concepts
 - Adding some sort of co-routine system to allow for async operations
 - Add a network layer to allow for actor discovery and communication between nodes
 - Create a foundation for potential future development
-
-
-## Archive module
-
-git archive --format=tar.gz --output=backstage.tar.gz HEAD
