@@ -1,7 +1,7 @@
 const std = @import("std");
 const backstage = @import("backstage");
 const testing = std.testing;
-const concurrency = backstage.concurrency;
+// const concurrency = backstage.concurrency;
 const obHolderManager = @import("orderbook_holder_manager.zig");
 const obHolder = @import("orderbook_holder.zig");
 const strg = @import("strategy.zig");
@@ -10,10 +10,10 @@ const Allocator = std.mem.Allocator;
 const Engine = backstage.Engine;
 const Context = backstage.Context;
 const ActorInterface = backstage.ActorInterface;
-const Coroutine = concurrency.Coroutine;
-const Scheduler = concurrency.Scheduler;
-const Channel = concurrency.Channel;
-const EmptyArgs = concurrency.EmptyArgs;
+// const Coroutine = concurrency.Coroutine;
+// const Scheduler = concurrency.Scheduler;
+// const Channel = concurrency.Channel;
+const EmptyArgs = backstage.EmptyArgs;
 
 const OrderbookHolder = obHolder.OrderbookHolder;
 const OrderbookHolderMessage = obHolder.OrderbookHolderMessage;
@@ -23,9 +23,6 @@ const OrderbookHolderManager = obHolderManager.OrderbookHolderManager;
 const OrderbookHolderManagerMessage = obHolderManager.OrderbookHolderManagerMessage;
 
 pub fn main() !void {
-    concurrency.run(mainRoutine);
-}
-pub fn mainRoutine(_: EmptyArgs) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
@@ -35,6 +32,7 @@ pub fn mainRoutine(_: EmptyArgs) !void {
     const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
         .id = "holder_manager",
     });
+    // _ = orderbook_holder_manager;
     try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "BTC/USD" } });
     try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .start_all_holders = .{} });
 
@@ -42,8 +40,10 @@ pub fn mainRoutine(_: EmptyArgs) !void {
         .id = "strategy",
     });
     try strategy.send(null, StrategyMessage{ .init = .{} });
-    try strategy.send(null, StrategyMessage{ .request = .{} });
+    try strategy.send(null, StrategyMessage{ .subscribe = .{ .ticker = "BTC/USD" } });
+
+    try engine.run();
 
     // This is only done to permanently suspend the main routine so it doesn't run out of scope.
-    strategy.ctx.suspendRoutine();
+    // strategy.ctx.suspendRoutine();
 }

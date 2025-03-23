@@ -3,12 +3,12 @@ const act = @import("actor.zig");
 const envlp = @import("envelope.zig");
 const actor_ctx = @import("context.zig");
 const std = @import("std");
-const chan = @import("concurrency/channel.zig");
+// const chan = @import("concurrency/channel.zig");
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Context = actor_ctx.Context;
-const Channel = chan.Channel;
+// const Channel = chan.Channel;
 const Request = @import("request.zig").Request;
 const Envelope = envlp.Envelope;
 const xev = @import("xev");
@@ -23,13 +23,19 @@ pub const Engine = struct {
     loop: xev.Loop,
     const Self = @This();
     pub fn init(allocator: Allocator) !Self {
-        var loop = try xev.Loop.init(.{});
-        try loop.run(.no_wait);
+        const loop = try xev.Loop.init(.{});
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
             .loop = loop,
         };
+    }
+
+    pub fn run(self: *Self) !void {
+        // while (true) {
+            std.debug.print("Running loop\n", .{});
+            try self.loop.run(.once);
+        // }
     }
 
     pub fn deinit(self: *Self) void {
@@ -46,7 +52,7 @@ pub const Engine = struct {
         return actor_interface;
     }
 
-    pub fn send(self: *Self, sender: ?*const ActorInterface, id: []const u8, message: anytype) !void {
+    pub fn send(self: *Self, sender: ?*ActorInterface, id: []const u8, message: anytype) !void {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
             try a.send(sender, message);
@@ -60,26 +66,30 @@ pub const Engine = struct {
     }
 
     pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
-        const actor = self.Registry.getByID(id);
+        _ = sender;
+        _ = id;
+        _ = original_message;
+        _ = self;
+        // const actor = self.Registry.getByID(id);
 
-        var message = original_message;
-        var result: ResultType = undefined;
+        // var message = original_message;
+        // var result: ResultType = undefined;
 
-        var ch = try Channel.init(ResultType, 1);
-        try ch.retain();
-        switch (message) {
-            .request => |*req| {
-                req.result = ch;
-            },
-            else => {
-                return error.InvalidMessageType;
-            },
-        }
-        if (actor) |a| {
-            try a.send(sender, message);
-        }
-        try ch.receive(&result);
-        ch.deinit();
-        return result;
+        // var ch = try Channel.init(ResultType, 1);
+        // try ch.retain();
+        // switch (message) {
+        //     .request => |*req| {
+        //         req.result = ch;
+        //     },
+        //     else => {
+        //         return error.InvalidMessageType;
+        //     },
+        // }
+        // if (actor) |a| {
+        //     try a.send(sender, message);
+        // }
+        // try ch.receive(&result);
+        // ch.deinit();
+        // return result;
     }
 };

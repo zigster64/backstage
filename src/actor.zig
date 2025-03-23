@@ -1,14 +1,14 @@
 const std = @import("std");
 const inbox = @import("inbox.zig");
-const concurrency = @import("concurrency/root.zig");
+// const concurrency = @import("concurrency/root.zig");
 const eng = @import("engine.zig");
 const ctxt = @import("context.zig");
 const envlp = @import("envelope.zig");
-
+const xev = @import("xev");
 const Allocator = std.mem.Allocator;
 const Inbox = inbox.Inbox;
-const Coroutine = concurrency.Coroutine;
-const Scheduler = concurrency.Scheduler;
+// const Coroutine = concurrency.Coroutine;
+// const Scheduler = concurrency.Scheduler;
 const Engine = eng.Engine;
 const Context = ctxt.Context;
 const Envelope = envlp.Envelope;
@@ -17,6 +17,7 @@ pub const ActorInterface = struct {
     ptr: *anyopaque,
     inbox: Inbox,
     ctx: *Context,
+    completion: xev.Completion = undefined,
 
     receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) anyerror!void,
     deinitFnPtr: *const fn (ptr: *anyopaque) void,
@@ -35,16 +36,36 @@ pub const ActorInterface = struct {
         const self = try allocator.create(Self);
         self.* = .{
             .ptr = actor_instance,
-            .inbox = try Inbox.init(MsgType, capacity),
+            .inbox = try Inbox.init(allocator, MsgType, capacity),
             .ctx = ctx,
             .receiveFnPtr = makeTypeErasedReceiveFn(ActorType, MsgType),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
         };
         ctx.actor = self;
-
-        Coroutine(makeRoutineFn(MsgType)).go(self);
+        try listenForMessages(self, MsgType);
 
         return self;
+    }
+    fn listenForMessages(self: *Self, comptime MsgType: type) !void {
+        const listenForMessagesFn = struct {
+            fn inner(
+                userdata: ?*anyopaque,
+                _: *xev.Loop,
+                _: *xev.Completion,
+                _: xev.Result,
+            ) xev.CallbackAction {
+                // std.debug.print("Listening for messages\n", .{});
+
+                const s: *Self = @as(*Self, @ptrCast(@alignCast(userdata.?)));
+                var msg: MsgType = undefined;
+                const received = s.inbox.receive(&msg) catch unreachable;
+                if (received) {
+                    s.receiveFnPtr(s.ptr, &msg) catch unreachable;
+                }
+                return .rearm;
+            }
+        }.inner;
+        self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
     }
 
     pub fn deinit(self: *Self) void {
@@ -52,7 +73,7 @@ pub const ActorInterface = struct {
         self.deinitFnPtr(self.ptr);
     }
 
-    pub fn send(self: *const Self, sender: ?*const ActorInterface, msg: anytype) !void {
+    pub fn send(self: *Self, sender: ?*ActorInterface, msg: anytype) !void {
         try self.inbox.send(Envelope(@TypeOf(msg)).init(sender, msg));
     }
 };

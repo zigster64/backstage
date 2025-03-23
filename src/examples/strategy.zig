@@ -1,19 +1,28 @@
 const std = @import("std");
 const backstage = @import("backstage");
 const testing = std.testing;
-const concurrency = backstage.concurrency;
 
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
 const Request = backstage.Request;
 const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
-const TestOrderbookRequest = @import("orderbook_holder.zig").TestOrderbookRequest;
 const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
 const Envelope = backstage.Envelope;
+const OrderbookSubscriptionRequest = @import("orderbook_holder.zig").SubscribeRequest;
 
 pub const StrategyMessage = union(enum) {
     init: struct {},
-    request: struct {},
+    subscribe: SubscribeRequest,
+    update: UpdateRequest,
+};
+
+pub const SubscribeRequest = struct {
+    ticker: []const u8,
+};
+
+pub const UpdateRequest = struct {
+    ticker: []const u8,
+    last_timestamp: []const u8,
 };
 
 pub const Strategy = struct {
@@ -35,16 +44,13 @@ pub const Strategy = struct {
             .init => |_| {
                 std.debug.print("Strategy initialized\n", .{});
             },
-            .request => |_| {
-                while (true) {
-                    const res = try self.ctx.request("BTC/USD", OrderbookHolderMessage{
-                        .request = Request(TestOrderbookRequest){
-                            .payload = TestOrderbookRequest{ .id = "EUR_HKD" },
-                        },
-                    }, TestOrderbookResponse);
-                    std.debug.print("Response received: {s}\n", .{res.last_timestamp});
-                    self.ctx.yield();
-                }
+            .subscribe => |m| {
+                try self.ctx.send(m.ticker, OrderbookHolderMessage{
+                    .subscribe = OrderbookSubscriptionRequest{},
+                });
+            },
+            .update => |m| {
+                std.debug.print("Update received: {s}\n", .{m.last_timestamp});
             },
         }
     }

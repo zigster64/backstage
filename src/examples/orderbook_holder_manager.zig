@@ -1,7 +1,6 @@
 const std = @import("std");
 const backstage = @import("backstage");
 const testing = std.testing;
-const concurrency = backstage.concurrency;
 const obHolder = @import("orderbook_holder.zig");
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
@@ -29,12 +28,14 @@ pub const OrderbookHolderManager = struct {
     pub fn receive(self: *Self, message: *const Envelope(OrderbookHolderManagerMessage)) !void {
         switch (message.payload) {
             .spawn_holder => |m| {
+                std.debug.print("Spawning holder {s}\n", .{m.id});
                 const holder = try self.ctx.spawnChildActor(OrderbookHolder, OrderbookHolderMessage, .{
                     .id = m.id,
                 });
                 try holder.send(self.ctx.actor, OrderbookHolderMessage{ .init = .{ .ticker = m.id } });
             },
             .start_all_holders => |_| {
+                std.debug.print("Starting all holders\n", .{});
                 for (self.ctx.child_actors.items) |actor| {
                     try actor.send(self.ctx.actor, OrderbookHolderMessage{ .start = .{} });
                 }

@@ -2,9 +2,9 @@ const std = @import("std");
 const backstage = @import("backstage");
 const testing = std.testing;
 const ws = @import("websocket");
-const concurrency = backstage.concurrency;
+// const concurrency = backstage.concurrency;
 const kraken = @import("kraken.zig");
-const Coroutine = concurrency.Coroutine;
+// const Coroutine = concurrency.Coroutine;
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
 const Request = backstage.Request;
@@ -13,16 +13,15 @@ const SubscriptionRequest = kraken.SubscriptionRequest;
 const deserialize_request = kraken.deserialize_request;
 const parseOrderbookMessage = kraken.parseOrderbookMessage;
 const Envelope = backstage.Envelope;
-
+const ActorInterface = backstage.ActorInterface;
+const StrategyMessage = @import("strategy.zig").StrategyMessage;
 pub const OrderbookHolderMessage = union(enum) {
     init: struct { ticker: []const u8 },
     start: struct {},
-    request: Request(TestOrderbookRequest),
+    subscribe: SubscribeRequest,
 };
 
-pub const TestOrderbookRequest = struct {
-    id: []const u8,
-};
+pub const SubscribeRequest = struct {};
 pub const TestOrderbookResponse = struct {
     last_timestamp: []const u8,
 };
@@ -33,7 +32,8 @@ pub const OrderbookHolder = struct {
     ticker: []const u8 = "",
     ws_client: ws.Client,
     ctx: *Context,
-    last_timestamp: []const u8 = "",
+
+    subscriptions: std.ArrayList(*ActorInterface),
     const Self = @This();
     pub fn init(ctx: *Context, allocator: Allocator) !*Self {
         const self = try allocator.create(Self);
@@ -53,6 +53,7 @@ pub const OrderbookHolder = struct {
             .arena = arena,
             .ctx = ctx,
             .ws_client = client,
+            .subscriptions = std.ArrayList(*ActorInterface).init(allocator),
         };
         return self;
     }
@@ -69,6 +70,7 @@ pub const OrderbookHolder = struct {
                 self.ticker = m.ticker;
             },
             .start => |_| {
+                std.debug.print("STARTING HOLDER {s}\n", .{self.ticker});
                 var buffer: [128]u8 = undefined;
                 const req = try serialize_request(SubscriptionRequest{
                     .method = "subscribe",
@@ -78,32 +80,36 @@ pub const OrderbookHolder = struct {
                     },
                 }, &buffer);
                 try self.ws_client.write(req);
-                Coroutine(listenToOrderbook).go(self);
+                // Coroutine(listenToOrderbook).go(self);
+                self.ctx.addTimer(0, Self, listenToOrderbook);
             },
-            .request => |req| {
-                try req.result.?.send(TestOrderbookResponse{ .last_timestamp = self.last_timestamp });
+            .subscribe => |_| {
+                try self.subscriptions.append(message.sender.?);
             },
         }
     }
 
     fn listenToOrderbook(self: *Self) !void {
-        while (true) {
-            const ws_msg = try self.ws_client.read();
-            if (ws_msg) |msg| {
-                const orderbook_message = try parseOrderbookMessage(msg.data, self.arena.allocator());
-                if (orderbook_message) |message| {
-                    switch (message) {
-                        .snapshot => |snapshot| {
-                            std.debug.print("Orderbook message: {}\n", .{snapshot});
-                        },
-                        .update => |update| {
-                            std.debug.print("Update message: {}\n", .{update});
-                            self.last_timestamp = update.data[0].timestamp.?;
-                        },
-                    }
+        const ws_msg = try self.ws_client.read();
+        std.debug.print("LISTENING TO ORDERBOOK\n", .{});
+        if (ws_msg) |msg| {
+            const orderbook_message = try parseOrderbookMessage(msg.data, self.arena.allocator());
+            if (orderbook_message) |message| {
+                switch (message) {
+                    .snapshot => |snapshot| {
+                        std.debug.print("Orderbook message: {}\n", .{snapshot});
+                    },
+                    .update => |update| {
+                        std.debug.print("Update message: {}\n", .{update});
+                        for (self.subscriptions.items) |actor| {
+                            try actor.send(self.ctx.actor, StrategyMessage{ .update = .{
+                                .ticker = self.ticker,
+                                .last_timestamp = "123",
+                            } });
+                        }
+                    },
                 }
             }
-            self.ctx.yield();
         }
     }
 };
