@@ -8,10 +8,13 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
     });
 
+    const xev = b.dependency("libxev", .{ .target = target, .optimize = optimize });
     const backstage_lib = try buildLibbackstage(b, .{
         .target = target,
         .optimize = optimize,
     });
+    backstage_mod.addImport("xev", xev.module("xev"));
+    
     backstage_mod.linkLibrary(backstage_lib);
 
     const examples = .{
@@ -38,8 +41,10 @@ fn buildLibbackstage(b: *std.Build, options: LibOptions) !*std.Build.Step.Compil
         .optimize = options.optimize,
         .link_libc = true,
     });
+
     lib.addIncludePath(b.path("lib/neco"));
     lib.installHeadersDirectory(b.path("lib/neco"), "neco", .{});
+
 
     b.installArtifact(lib);
 

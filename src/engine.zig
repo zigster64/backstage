@@ -11,6 +11,7 @@ const Context = actor_ctx.Context;
 const Channel = chan.Channel;
 const Request = @import("request.zig").Request;
 const Envelope = envlp.Envelope;
+const xev = @import("xev");
 pub const SpawnActorOptions = struct {
     id: []const u8,
     capacity: usize = 1024,
@@ -19,17 +20,21 @@ pub const SpawnActorOptions = struct {
 pub const Engine = struct {
     Registry: Registry,
     allocator: Allocator,
-
+    loop: xev.Loop,
     const Self = @This();
-    pub fn init(allocator: Allocator) Self {
+    pub fn init(allocator: Allocator) !Self {
+        var loop = try xev.Loop.init(.{});
+        try loop.run(.no_wait);
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
+            .loop = loop,
         };
     }
 
     pub fn deinit(self: *Self) void {
         self.Registry.deinit();
+        self.loop.deinit();
     }
 
     pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {

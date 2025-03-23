@@ -29,7 +29,7 @@ pub fn mainRoutine(_: EmptyArgs) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    var engine = Engine.init(allocator);
+    var engine = try Engine.init(allocator);
     defer engine.deinit();
 
     const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
