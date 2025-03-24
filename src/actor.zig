@@ -19,7 +19,6 @@ pub const ActorInterface = struct {
     ctx: *Context,
     completion: xev.Completion = undefined,
 
-    receiveFnPtr: *const fn (ptr: *anyopaque, msg: *const anyopaque) anyerror!void,
     deinitFnPtr: *const fn (ptr: *anyopaque) void,
 
     const Self = @This();
@@ -38,15 +37,14 @@ pub const ActorInterface = struct {
             .ptr = actor_instance,
             .inbox = try Inbox.init(allocator, MsgType, capacity),
             .ctx = ctx,
-            .receiveFnPtr = makeTypeErasedReceiveFn(ActorType, MsgType),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
         };
         ctx.actor = self;
-        try listenForMessages(self, MsgType);
+        try self.listenForMessages(ActorType, MsgType);
 
         return self;
     }
-    fn listenForMessages(self: *Self, comptime MsgType: type) !void {
+    fn listenForMessages(self: *Self, comptime ActorType: type, comptime MsgType: type) !void {
         const listenForMessagesFn = struct {
             fn inner(
                 userdata: ?*anyopaque,
@@ -54,15 +52,16 @@ pub const ActorInterface = struct {
                 _: *xev.Completion,
                 _: xev.Result,
             ) xev.CallbackAction {
-                // std.debug.print("Listening for messages\n", .{});
-
                 const s: *Self = @as(*Self, @ptrCast(@alignCast(userdata.?)));
                 var msg: MsgType = undefined;
                 const received = s.inbox.receive(&msg) catch unreachable;
                 if (received) {
-                    s.receiveFnPtr(s.ptr, &msg) catch unreachable;
+                    const actor_impl = @as(*ActorType, @ptrCast(@alignCast(s.ptr)));
+                    actor_impl.receive(&msg) catch unreachable;
+                    return .rearm;
                 }
-                return .rearm;
+                s.listenForMessages(ActorType, MsgType) catch unreachable;
+                return .disarm;
             }
         }.inner;
         self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
@@ -77,28 +76,6 @@ pub const ActorInterface = struct {
         try self.inbox.send(Envelope(@TypeOf(msg)).init(sender, msg));
     }
 };
-
-pub fn makeRoutineFn(comptime MsgType: type) fn (*ActorInterface) anyerror!void {
-    return struct {
-        fn routine(self: *ActorInterface) !void {
-            var msg: MsgType = undefined;
-            while (true) {
-                try self.inbox.receive(&msg);
-                try self.receiveFnPtr(self.ptr, &msg);
-            }
-        }
-    }.routine;
-}
-
-fn makeTypeErasedReceiveFn(comptime ActorType: type, comptime MsgType: type) fn (*anyopaque, *const anyopaque) anyerror!void {
-    return struct {
-        fn wrapper(ptr: *anyopaque, msg: *const anyopaque) anyerror!void {
-            const self = @as(*ActorType, @ptrCast(@alignCast(ptr)));
-            const typed_msg = @as(*const MsgType, @ptrCast(@alignCast(msg)));
-            try ActorType.receive(self, typed_msg);
-        }
-    }.wrapper;
-}
 
 fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) void {
     return struct {

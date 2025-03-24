@@ -9,20 +9,15 @@ const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMe
 const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
 const Envelope = backstage.Envelope;
 const OrderbookSubscriptionRequest = @import("orderbook_holder.zig").SubscribeRequest;
-
+const UpdateMessage = @import("kraken.zig").UpdateMessage;
 pub const StrategyMessage = union(enum) {
     init: struct {},
     subscribe: SubscribeRequest,
-    update: UpdateRequest,
+    update: UpdateMessage,
 };
 
 pub const SubscribeRequest = struct {
     ticker: []const u8,
-};
-
-pub const UpdateRequest = struct {
-    ticker: []const u8,
-    last_timestamp: []const u8,
 };
 
 pub const Strategy = struct {
@@ -41,16 +36,12 @@ pub const Strategy = struct {
 
     pub fn receive(self: *Self, message: *const Envelope(StrategyMessage)) !void {
         switch (message.payload) {
-            .init => |_| {
-                std.debug.print("Strategy initialized\n", .{});
-            },
+            .init => |_| {},
             .subscribe => |m| {
-                try self.ctx.send(m.ticker, OrderbookHolderMessage{
-                    .subscribe = OrderbookSubscriptionRequest{},
-                });
+                try self.ctx.send(m.ticker, OrderbookHolderMessage{ .subscribe = .{} });
             },
             .update => |m| {
-                std.debug.print("Update received: {s}\n", .{m.last_timestamp});
+                std.debug.print("Update received: {}\n", .{m});
             },
         }
     }

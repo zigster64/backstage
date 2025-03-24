@@ -20,10 +20,12 @@ pub const SpawnActorOptions = struct {
 pub const Engine = struct {
     Registry: Registry,
     allocator: Allocator,
-    loop: xev.Loop,
+    loop: *xev.Loop,
     const Self = @This();
     pub fn init(allocator: Allocator) !Self {
-        const loop = try xev.Loop.init(.{});
+        const loop = try allocator.create(xev.Loop);
+        loop.* = try xev.Loop.init(.{});
+        // var loop = try xev.Loop.init(.{});
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
@@ -33,8 +35,7 @@ pub const Engine = struct {
 
     pub fn run(self: *Self) !void {
         // while (true) {
-            std.debug.print("Running loop\n", .{});
-            try self.loop.run(.once);
+            try self.loop.run(.until_done);
         // }
     }
 
@@ -56,6 +57,8 @@ pub const Engine = struct {
         const actor = self.Registry.getByID(id);
         if (actor) |a| {
             try a.send(sender, message);
+        } else {
+            std.debug.print("Actor not found\n", .{});
         }
     }
     pub fn broadcast(self: *Self, sender: ?*const ActorInterface, message: anytype) !void {

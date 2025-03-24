@@ -10,6 +10,7 @@ const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Engine = eng.Engine;
 const SpawnActorOptions = eng.SpawnActorOptions;
+const Completion = @import("completion.zig").Completion;
 // const Scheduler = con.Scheduler;
 // const Channel = chan.Channel;
 pub const Context = struct {
@@ -56,11 +57,16 @@ pub const Context = struct {
     // pub fn yield(self: *const Self) void {
     //     self.scheduler.yield();
     // }
-
-    pub fn addTimer(self: *Self, ns: u64, comptime ActorType: type, comptime callback_fn: anytype) void {
+    pub fn runContinuously(self: *Self, comptime ActorType: type, comptime callback_fn: anytype) void {
+        while (true) {
+            callback_fn(self) catch unreachable;
+        }
+    }
+    
+    pub fn addTimer(self: *Self, userdata: ?*anyopaque, completion: *Completion, ms: u64, comptime ActorType: type, comptime callback_fn: anytype) void {
         const wrapped_callback = struct {
             fn wrapper(
-                userdata: ?*anyopaque,
+                ud: ?*anyopaque,
                 loop: *xev.Loop,
                 c: *xev.Completion,
                 result: xev.Result,
@@ -69,17 +75,16 @@ pub const Context = struct {
                 _ = c;
                 _ = result;
 
-                const actor = @as(*ActorType, @ptrCast(@alignCast(userdata.?)));
-
+                const actor = @as(*ActorType, @ptrCast(@alignCast(ud.?)));
                 // Call the actual callback function with just the actor
                 callback_fn(actor) catch unreachable;
-
                 // Always rearm the timer (can be changed if needed)
-                return .rearm;
+                actor.addTimer() catch unreachable;
+                return .disarm;
             }
         }.wrapper;
-        std.debug.print("Adding timer for {s}\n", .{@typeName(ActorType)});
-        self.engine.loop.timer(&self.actor.completion, ns, @ptrCast(self.actor), wrapped_callback);
+        // TODO: pass completion instead of reusing the actor's completion
+        self.engine.loop.timer(&completion.xev_completion, ms, userdata, wrapped_callback);
     }
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.Registry.getByID(id);
