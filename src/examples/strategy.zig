@@ -1,19 +1,22 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
-const concurrency = backstage.concurrency;
+const orderbook_hldr = @import("orderbook_holder.zig");
+const kraken = @import("kraken.zig");
 
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
-const Request = backstage.Request;
-const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
-const TestOrderbookRequest = @import("orderbook_holder.zig").TestOrderbookRequest;
-const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
 const Envelope = backstage.Envelope;
+const OrderbookHolderMessage = orderbook_hldr.OrderbookHolderMessage;
+const UpdateMessage = kraken.UpdateMessage;
 
 pub const StrategyMessage = union(enum) {
     init: struct {},
-    request: struct {},
+    subscribe: SubscribeRequest,
+    update: UpdateMessage,
+};
+
+pub const SubscribeRequest = struct {
+    ticker: []const u8,
 };
 
 pub const Strategy = struct {
@@ -32,19 +35,12 @@ pub const Strategy = struct {
 
     pub fn receive(self: *Self, message: *const Envelope(StrategyMessage)) !void {
         switch (message.payload) {
-            .init => |_| {
-                std.debug.print("Strategy initialized\n", .{});
+            .init => |_| {},
+            .subscribe => |m| {
+                try self.ctx.send(m.ticker, OrderbookHolderMessage{ .subscribe = .{} });
             },
-            .request => |_| {
-                while (true) {
-                    const res = try self.ctx.request("BTC/USD", OrderbookHolderMessage{
-                        .request = Request(TestOrderbookRequest){
-                            .payload = TestOrderbookRequest{ .id = "EUR_HKD" },
-                        },
-                    }, TestOrderbookResponse);
-                    std.debug.print("Response received: {s}\n", .{res.last_timestamp});
-                    self.ctx.yield();
-                }
+            .update => |m| {
+                std.debug.print("Update received: {}\n", .{m});
             },
         }
     }

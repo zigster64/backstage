@@ -2,18 +2,16 @@ const std = @import("std");
 const reg = @import("registry.zig");
 const act = @import("actor.zig");
 const eng = @import("engine.zig");
-const con = @import("concurrency/scheduler.zig");
-const chan = @import("concurrency/channel.zig");
+const xev = @import("xev");
+
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Engine = eng.Engine;
 const SpawnActorOptions = eng.SpawnActorOptions;
-const Scheduler = con.Scheduler;
-const Channel = chan.Channel;
+
 pub const Context = struct {
     engine: *Engine,
-    scheduler: Scheduler,
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
     child_actors: std.ArrayList(*ActorInterface),
@@ -24,7 +22,6 @@ pub const Context = struct {
         self.* = .{
             .engine = engine,
             .child_actors = std.ArrayList(*ActorInterface).init(allocator),
-            .scheduler = Scheduler.init(null),
             .parent_actor = null,
             .actor = undefined,
         };
@@ -32,29 +29,36 @@ pub const Context = struct {
     }
 
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
-        self.engine.send(self.actor, id, message);
+        try self.engine.send(self.actor, id, message);
     }
     pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !ResultType {
         return try self.engine.request(self.actor, id, message, ResultType);
     }
-    pub fn getCoroutineID(self: *const Self) i64 {
-        return self.scheduler.get_coroutine_id();
+
+    pub fn runContinuously(
+        self: *Self,
+        comptime ActorType: type,
+        comptime callback_fn: anytype,
+        completion: *xev.Completion,
+        userdata: ?*anyopaque,
+    ) !void {
+        const callback = struct {
+            fn inner(
+                ud: ?*anyopaque,
+                loop: *xev.Loop,
+                c: *xev.Completion,
+                _: xev.Result,
+            ) xev.CallbackAction {
+                const actor = @as(*ActorType, @ptrCast(@alignCast(ud.?)));
+                callback_fn(actor) catch unreachable;
+                loop.timer(c, 0, ud, inner);
+                return .disarm;
+            }
+        }.inner;
+        
+        self.engine.loop.timer(completion, 0, userdata, callback);
     }
-    pub fn getLastCoroutineID(self: *const Self) i64 {
-        return self.scheduler.get_last_coroutine_id();
-    }
-    pub fn suspendRoutine(self: *const Self) void {
-        self.scheduler.suspend_routine();
-    }
-    pub fn resumeRoutine(self: *const Self, id: i64) void {
-        self.scheduler.resume_routine(id);
-    }
-    pub fn sleepRoutine(self: *const Self, ns: i64) void {
-        self.scheduler.sleep(ns);
-    }
-    pub fn yield(self: *const Self) void {
-        self.scheduler.yield();
-    }
+
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.Registry.getByID(id);
     }

@@ -1,7 +1,5 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
-const concurrency = backstage.concurrency;
 const obHolder = @import("orderbook_holder.zig");
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
@@ -36,6 +34,7 @@ pub const OrderbookHolderManager = struct {
             },
             .start_all_holders => |_| {
                 for (self.ctx.child_actors.items) |actor| {
+                    std.debug.print("Sending start to\n", .{});
                     try actor.send(self.ctx.actor, OrderbookHolderMessage{ .start = .{} });
                 }
             },
