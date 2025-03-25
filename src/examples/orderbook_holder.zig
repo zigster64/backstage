@@ -1,19 +1,20 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
 const ws = @import("websocket");
-// const concurrency = backstage.concurrency;
 const kraken = @import("kraken.zig");
-// const Coroutine = concurrency.Coroutine;
+const strtgy = @import("strategy.zig");
+
+const testing = std.testing;
+const xev = backstage.xev;
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
 const Request = backstage.Request;
-const Broker = @import("kraken.zig").Broker;
+const Broker = kraken.Broker;
 const parseOrderbookMessage = kraken.parseOrderbookMessage;
 const Envelope = backstage.Envelope;
 const ActorInterface = backstage.ActorInterface;
-const StrategyMessage = @import("strategy.zig").StrategyMessage;
-const Completion = backstage.Completion;
+const StrategyMessage = strtgy.StrategyMessage;
+
 pub const OrderbookHolderMessage = union(enum) {
     init: struct { ticker: []const u8 },
     start: struct {},
@@ -21,14 +22,11 @@ pub const OrderbookHolderMessage = union(enum) {
 };
 
 pub const SubscribeRequest = struct {};
-pub const TestOrderbookResponse = struct {
-    last_timestamp: []const u8,
-};
 
 pub const OrderbookHolder = struct {
     allocator: Allocator,
     ticker: []const u8 = "",
-    timer: Completion,
+    timer: xev.Completion,
     ctx: *Context,
     broker: *Broker,
     subscriptions: std.ArrayList(*ActorInterface),
@@ -39,7 +37,7 @@ pub const OrderbookHolder = struct {
             .allocator = allocator,
             .ctx = ctx,
             .subscriptions = std.ArrayList(*ActorInterface).init(allocator),
-            .timer = Completion{},
+            .timer = xev.Completion{},
             .broker = try Broker.init(allocator),
         };
         return self;
@@ -50,22 +48,16 @@ pub const OrderbookHolder = struct {
     pub fn receive(self: *Self, message: *const Envelope(OrderbookHolderMessage)) !void {
         switch (message.payload) {
             .init => |m| {
-                std.debug.print("Orderbook holder init {s}\n", .{m.ticker});
                 self.ticker = m.ticker;
             },
             .start => |_| {
                 try self.broker.subscribeToOrderbook(self.ticker);
-                try self.addTimer();
+                try self.ctx.runContinuously(Self, listenToOrderbook, &self.timer, @ptrCast(self));
             },
             .subscribe => |_| {
-                std.debug.print("Subscribing to orderbook {s}\n", .{self.ticker});
                 try self.subscriptions.append(message.sender.?);
             },
         }
-    }
-
-    pub fn addTimer(self: *Self) !void {
-        self.ctx.addTimer(@ptrCast(self), &self.timer, 0, Self, listenToOrderbook);
     }
 
     fn listenToOrderbook(self: *Self) !void {
@@ -73,7 +65,9 @@ pub const OrderbookHolder = struct {
         if (ws_msg) |msg| {
             switch (msg) {
                 .snapshot => |snapshot| {
-                    std.debug.print("Orderbook message: {}\n", .{snapshot});
+                    for (self.subscriptions.items) |actor| {
+                        try actor.send(self.ctx.actor, StrategyMessage{ .update = snapshot });
+                    }
                 },
                 .update => |update| {
                     for (self.subscriptions.items) |actor| {

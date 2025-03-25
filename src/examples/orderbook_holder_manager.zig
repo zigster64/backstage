@@ -1,6 +1,5 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
 const obHolder = @import("orderbook_holder.zig");
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;

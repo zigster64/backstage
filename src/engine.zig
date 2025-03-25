@@ -3,15 +3,16 @@ const act = @import("actor.zig");
 const envlp = @import("envelope.zig");
 const actor_ctx = @import("context.zig");
 const std = @import("std");
-// const chan = @import("concurrency/channel.zig");
+const req = @import("request.zig");
+const xev = @import("xev");
+
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Context = actor_ctx.Context;
-// const Channel = chan.Channel;
-const Request = @import("request.zig").Request;
+const Request = req.Request;
 const Envelope = envlp.Envelope;
-const xev = @import("xev");
+
 pub const SpawnActorOptions = struct {
     id: []const u8,
     capacity: usize = 1024,
@@ -20,23 +21,18 @@ pub const SpawnActorOptions = struct {
 pub const Engine = struct {
     Registry: Registry,
     allocator: Allocator,
-    loop: *xev.Loop,
+    loop: xev.Loop,
     const Self = @This();
     pub fn init(allocator: Allocator) !Self {
-        const loop = try allocator.create(xev.Loop);
-        loop.* = try xev.Loop.init(.{});
-        // var loop = try xev.Loop.init(.{});
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
-            .loop = loop,
+            .loop = try xev.Loop.init(.{}),
         };
     }
 
     pub fn run(self: *Self) !void {
-        // while (true) {
-            try self.loop.run(.until_done);
-        // }
+        try self.loop.run(.until_done);
     }
 
     pub fn deinit(self: *Self) void {
@@ -58,6 +54,7 @@ pub const Engine = struct {
         if (actor) |a| {
             try a.send(sender, message);
         } else {
+            // TODO Propper way of handling this
             std.debug.print("Actor not found\n", .{});
         }
     }
@@ -69,30 +66,10 @@ pub const Engine = struct {
     }
 
     pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
+        // Needs to be reimplemented
         _ = sender;
         _ = id;
         _ = original_message;
         _ = self;
-        // const actor = self.Registry.getByID(id);
-
-        // var message = original_message;
-        // var result: ResultType = undefined;
-
-        // var ch = try Channel.init(ResultType, 1);
-        // try ch.retain();
-        // switch (message) {
-        //     .request => |*req| {
-        //         req.result = ch;
-        //     },
-        //     else => {
-        //         return error.InvalidMessageType;
-        //     },
-        // }
-        // if (actor) |a| {
-        //     try a.send(sender, message);
-        // }
-        // try ch.receive(&result);
-        // ch.deinit();
-        // return result;
     }
 };

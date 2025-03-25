@@ -1,7 +1,5 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
-// const concurrency = backstage.concurrency;
 const obHolderManager = @import("orderbook_holder_manager.zig");
 const obHolder = @import("orderbook_holder.zig");
 const strg = @import("strategy.zig");
@@ -10,11 +8,6 @@ const Allocator = std.mem.Allocator;
 const Engine = backstage.Engine;
 const Context = backstage.Context;
 const ActorInterface = backstage.ActorInterface;
-// const Coroutine = concurrency.Coroutine;
-// const Scheduler = concurrency.Scheduler;
-// const Channel = concurrency.Channel;
-const EmptyArgs = backstage.EmptyArgs;
-
 const OrderbookHolder = obHolder.OrderbookHolder;
 const OrderbookHolderMessage = obHolder.OrderbookHolderMessage;
 const Strategy = strg.Strategy;
@@ -32,7 +25,6 @@ pub fn main() !void {
     const orderbook_holder_manager = try engine.spawnActor(OrderbookHolderManager, OrderbookHolderManagerMessage, .{
         .id = "holder_manager",
     });
-    // _ = orderbook_holder_manager;
     try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .spawn_holder = .{ .id = "BTC/USD" } });
     try orderbook_holder_manager.send(null, OrderbookHolderManagerMessage{ .start_all_holders = .{} });
 
@@ -43,7 +35,4 @@ pub fn main() !void {
     try strategy.send(null, StrategyMessage{ .subscribe = .{ .ticker = "BTC/USD" } });
 
     try engine.run();
-
-    // This is only done to permanently suspend the main routine so it doesn't run out of scope.
-    // strategy.ctx.suspendRoutine();
 }

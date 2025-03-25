@@ -42,7 +42,7 @@ pub const Broker = struct {
         if (ws_msg) |msg| {
             defer self.ws_client.done(msg);
             var arena_state = std.heap.ArenaAllocator.init(self.allocator);
-            // TODO fix this
+            // Currently not really handling memory freeing, not that important for an example
             // defer arena_state.deinit();
             return try parseOrderbookMessage(msg.data, arena_state.allocator());
         }

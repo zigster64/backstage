@@ -1,15 +1,14 @@
 const std = @import("std");
 const backstage = @import("backstage");
-const testing = std.testing;
+const orderbook_hldr = @import("orderbook_holder.zig");
+const kraken = @import("kraken.zig");
 
 const Allocator = std.mem.Allocator;
 const Context = backstage.Context;
-const Request = backstage.Request;
-const OrderbookHolderMessage = @import("orderbook_holder.zig").OrderbookHolderMessage;
-const TestOrderbookResponse = @import("orderbook_holder.zig").TestOrderbookResponse;
 const Envelope = backstage.Envelope;
-const OrderbookSubscriptionRequest = @import("orderbook_holder.zig").SubscribeRequest;
-const UpdateMessage = @import("kraken.zig").UpdateMessage;
+const OrderbookHolderMessage = orderbook_hldr.OrderbookHolderMessage;
+const UpdateMessage = kraken.UpdateMessage;
+
 pub const StrategyMessage = union(enum) {
     init: struct {},
     subscribe: SubscribeRequest,

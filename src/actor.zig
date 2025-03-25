@@ -1,14 +1,12 @@
 const std = @import("std");
 const inbox = @import("inbox.zig");
-// const concurrency = @import("concurrency/root.zig");
 const eng = @import("engine.zig");
 const ctxt = @import("context.zig");
 const envlp = @import("envelope.zig");
 const xev = @import("xev");
+
 const Allocator = std.mem.Allocator;
 const Inbox = inbox.Inbox;
-// const Coroutine = concurrency.Coroutine;
-// const Scheduler = concurrency.Scheduler;
 const Engine = eng.Engine;
 const Context = ctxt.Context;
 const Envelope = envlp.Envelope;
@@ -47,12 +45,12 @@ pub const ActorInterface = struct {
     fn listenForMessages(self: *Self, comptime ActorType: type, comptime MsgType: type) !void {
         const listenForMessagesFn = struct {
             fn inner(
-                userdata: ?*anyopaque,
-                _: *xev.Loop,
-                _: *xev.Completion,
+                ud: ?*anyopaque,
+                loop: *xev.Loop,
+                c: *xev.Completion,
                 _: xev.Result,
             ) xev.CallbackAction {
-                const s: *Self = @as(*Self, @ptrCast(@alignCast(userdata.?)));
+                const s: *Self = @as(*Self, @ptrCast(@alignCast(ud.?)));
                 var msg: MsgType = undefined;
                 const received = s.inbox.receive(&msg) catch unreachable;
                 if (received) {
@@ -60,7 +58,8 @@ pub const ActorInterface = struct {
                     actor_impl.receive(&msg) catch unreachable;
                     return .rearm;
                 }
-                s.listenForMessages(ActorType, MsgType) catch unreachable;
+
+                loop.timer(c, 0, ud, inner);
                 return .disarm;
             }
         }.inner;
