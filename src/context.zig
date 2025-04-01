@@ -36,7 +36,7 @@ pub const Context = struct {
     }
 
     pub fn getLoop(self: *const Self) *xev.Loop {
-        return self.engine.loop;
+        return &self.engine.loop;
     }
 
     pub fn runContinuously(
