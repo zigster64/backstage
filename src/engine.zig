@@ -22,12 +22,15 @@ pub const Engine = struct {
     Registry: Registry,
     allocator: Allocator,
     loop: xev.Loop,
+    thread_pool: xev.ThreadPool,
     const Self = @This();
     pub fn init(allocator: Allocator) !Self {
+        var thread_pool = xev.ThreadPool.init(.{});
+
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
-            .loop = try xev.Loop.init(.{}),
+            .loop = try xev.Loop.init(.{ .thread_pool = &thread_pool }),
         };
     }
 
@@ -37,6 +40,8 @@ pub const Engine = struct {
 
     pub fn deinit(self: *Self) void {
         self.Registry.deinit();
+        self.thread_pool.deinit();
+        self.thread_pool.shutdown();
         self.loop.deinit();
     }
 
