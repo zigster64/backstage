@@ -35,6 +35,10 @@ pub const Context = struct {
         return try self.engine.request(self.actor, id, message, ResultType);
     }
 
+    pub fn getLoop(self: *const Self) *xev.Loop {
+        return self.engine.loop;
+    }
+
     pub fn runContinuously(
         self: *Self,
         comptime ActorType: type,
