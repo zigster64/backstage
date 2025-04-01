@@ -30,7 +30,10 @@ pub const Engine = struct {
         return .{
             .Registry = Registry.init(allocator),
             .allocator = allocator,
-            .loop = try xev.Loop.init(.{ .thread_pool = &thread_pool }),
+            .thread_pool = thread_pool,
+            .loop = try xev.Loop.init(.{
+                .thread_pool = &thread_pool,
+            }),
         };
     }
 
