@@ -45,6 +45,7 @@ pub const Context = struct {
         comptime callback_fn: anytype,
         completion: *xev.Completion,
         userdata: ?*anyopaque,
+        comptime delay_ms: u64,
     ) !void {
         const callback = struct {
             fn inner(
@@ -59,8 +60,8 @@ pub const Context = struct {
                 return .disarm;
             }
         }.inner;
-        
-        self.engine.loop.timer(completion, 0, userdata, callback);
+
+        self.engine.loop.timer(completion, delay_ms, userdata, callback);
     }
 
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {

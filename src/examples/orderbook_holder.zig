@@ -52,7 +52,13 @@ pub const OrderbookHolder = struct {
             },
             .start => |_| {
                 try self.broker.subscribeToOrderbook(self.ticker);
-                try self.ctx.runContinuously(Self, listenToOrderbook, &self.timer, @ptrCast(self));
+                try self.ctx.runContinuously(
+                    Self,
+                    listenToOrderbook,
+                    &self.timer,
+                    @ptrCast(self),
+                    0,
+                );
             },
             .subscribe => |_| {
                 try self.subscriptions.append(message.sender.?);
