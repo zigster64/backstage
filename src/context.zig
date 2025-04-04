@@ -56,7 +56,7 @@ pub const Context = struct {
             ) xev.CallbackAction {
                 const actor = @as(*ActorType, @ptrCast(@alignCast(ud.?)));
                 callback_fn(actor) catch unreachable;
-                loop.timer(c, 0, ud, inner);
+                loop.timer(c, delay_ms, ud, inner);
                 return .disarm;
             }
         }.inner;
