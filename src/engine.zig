@@ -19,7 +19,7 @@ pub const SpawnActorOptions = struct {
 };
 
 pub const Engine = struct {
-    Registry: Registry,
+    registry: Registry,
     allocator: Allocator,
     loop: xev.Loop,
     thread_pool: xev.ThreadPool,
@@ -42,32 +42,35 @@ pub const Engine = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        self.Registry.deinit();
+        self.registry.deinit();
         self.thread_pool.deinit();
         self.thread_pool.shutdown();
         self.loop.deinit();
     }
 
     pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
+        const actor = self.registry.getByID(options.id);
+        if (actor) |a| {
+            return a;
+        }
         const ctx = try Context.init(self.allocator, self);
         const actor_interface = try ActorInterface.create(self.allocator, ctx, ActorType, Envelope(MsgType), options.capacity);
         errdefer actor_interface.deinit();
 
-        try self.Registry.add(options.id, Envelope(MsgType), actor_interface);
+        try self.registry.add(options.id, Envelope(MsgType), actor_interface);
         return actor_interface;
     }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, id: []const u8, message: anytype) !void {
-        const actor = self.Registry.getByID(id);
+        const actor = self.registry.getByID(id);
         if (actor) |a| {
             try a.send(sender, message);
         } else {
-            // TODO Propper way of handling this
-            std.debug.print("Actor not found\n", .{});
+            return error.ActorNotFound;
         }
     }
     pub fn broadcast(self: *Self, sender: ?*const ActorInterface, message: anytype) !void {
-        const actor = self.Registry.getByMessageType(message);
+        const actor = self.registry.getByMessageType(message);
         if (actor) |a| {
             try a.send(sender, message);
         }

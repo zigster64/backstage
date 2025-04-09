@@ -65,7 +65,7 @@ pub const Context = struct {
     }
 
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
-        return self.engine.Registry.getByID(id);
+        return self.engine.registry.getByID(id);
     }
     pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         return try self.engine.spawnActor(ActorType, MsgType, options);
