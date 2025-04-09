@@ -28,7 +28,7 @@ pub const Engine = struct {
         var thread_pool = xev.ThreadPool.init(.{});
 
         return .{
-            .Registry = Registry.init(allocator),
+            .registry = Registry.init(allocator),
             .allocator = allocator,
             .thread_pool = thread_pool,
             .loop = try xev.Loop.init(.{
