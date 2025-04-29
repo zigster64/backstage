@@ -53,7 +53,7 @@ pub const Engine = struct {
         if (actor) |a| {
             return a;
         }
-        const ctx = try Context.init(self.allocator, self);
+        const ctx = try Context.init(self.allocator, self, options.id);
         const actor_interface = try ActorInterface.create(self.allocator, ctx, ActorType, Envelope(MsgType), options.capacity);
         errdefer actor_interface.deinit();
 

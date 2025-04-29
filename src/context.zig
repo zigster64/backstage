@@ -11,19 +11,22 @@ const Engine = eng.Engine;
 const SpawnActorOptions = eng.SpawnActorOptions;
 
 pub const Context = struct {
+    actor_id: []const u8,
     engine: *Engine,
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
+    // TODO: Use a better data structure
     child_actors: std.ArrayList(*ActorInterface),
 
     const Self = @This();
-    pub fn init(allocator: Allocator, engine: *Engine) !*Self {
+    pub fn init(allocator: Allocator, engine: *Engine, actor_id: []const u8) !*Self {
         const self = try allocator.create(Self);
         self.* = .{
             .engine = engine,
             .child_actors = std.ArrayList(*ActorInterface).init(allocator),
             .parent_actor = null,
             .actor = undefined,
+            .actor_id = actor_id,
         };
         return self;
     }
@@ -75,5 +78,21 @@ pub const Context = struct {
         actor.ctx.parent_actor = self.actor;
         try self.child_actors.append(actor);
         return actor;
+    }
+    pub fn deinitChildActor(self: *Self, actor: *ActorInterface) void {
+        for (self.child_actors.items, 0..) |child, i| {
+            if (std.mem.eql(u8, child.ctx.actor_id, actor.ctx.actor_id)) {
+                const removed_actor = self.child_actors.orderedRemove(i);
+                removed_actor.deinit();
+            }
+        }
+    }
+    pub fn deinitChildActorByID(self: *Self, id: []const u8) void {
+        for (self.child_actors.items, 0..) |child, i| {
+            if (std.mem.eql(u8, child.ctx.actor_id, id)) {
+                const removed_actor = self.child_actors.orderedRemove(i);
+                removed_actor.deinit();
+            }
+        }
     }
 };
