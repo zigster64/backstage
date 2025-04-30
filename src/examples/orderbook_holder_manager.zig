@@ -33,9 +33,10 @@ pub const OrderbookHolderManager = struct {
                 try holder.send(self.ctx.actor, OrderbookHolderMessage{ .init = .{ .ticker = m.id } });
             },
             .start_all_holders => |_| {
-                for (self.ctx.child_actors.items) |actor| {
-                    std.debug.print("Sending start to\n", .{});
-                    try actor.send(self.ctx.actor, OrderbookHolderMessage{ .start = .{} });
+                var it = self.ctx.child_actors.valueIterator();
+                while (it.next()) |actor| {
+                    std.debug.print("Sending start to {s}\n", .{actor.*.ctx.actor_id});
+                    try actor.*.send(self.ctx.actor, OrderbookHolderMessage{ .start = .{} });
                 }
             },
         }

@@ -15,15 +15,14 @@ pub const Context = struct {
     engine: *Engine,
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
-    // TODO: Use a better data structure
-    child_actors: std.ArrayList(*ActorInterface),
+    child_actors: std.StringHashMap(*ActorInterface),
 
     const Self = @This();
     pub fn init(allocator: Allocator, engine: *Engine, actor_id: []const u8) !*Self {
         const self = try allocator.create(Self);
         self.* = .{
             .engine = engine,
-            .child_actors = std.ArrayList(*ActorInterface).init(allocator),
+            .child_actors = std.StringHashMap(*ActorInterface).init(allocator),
             .parent_actor = null,
             .actor = undefined,
             .actor_id = actor_id,
@@ -76,23 +75,13 @@ pub const Context = struct {
     pub fn spawnChildActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
         actor.ctx.parent_actor = self.actor;
-        try self.child_actors.append(actor);
+        try self.child_actors.put(options.id, actor);
         return actor;
     }
-    pub fn deinitChildActor(self: *Self, actor: *ActorInterface) void {
-        for (self.child_actors.items, 0..) |child, i| {
-            if (std.mem.eql(u8, child.ctx.actor_id, actor.ctx.actor_id)) {
-                const removed_actor = self.child_actors.orderedRemove(i);
-                removed_actor.deinit();
-            }
-        }
+    pub fn deinitChildActor(self: *Self, actor: *ActorInterface) bool {
+        return self.child_actors.remove(actor.ctx.actor_id);
     }
-    pub fn deinitChildActorByID(self: *Self, id: []const u8) void {
-        for (self.child_actors.items, 0..) |child, i| {
-            if (std.mem.eql(u8, child.ctx.actor_id, id)) {
-                const removed_actor = self.child_actors.orderedRemove(i);
-                removed_actor.deinit();
-            }
-        }
+    pub fn deinitChildActorByID(self: *Self, id: []const u8) bool {
+        return self.child_actors.remove(id);
     }
 };
