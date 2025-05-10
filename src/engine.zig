@@ -55,7 +55,7 @@ pub const Engine = struct {
         }
         const ctx = try Context.init(self.allocator, self, options.id);
         const actor_interface = try ActorInterface.create(self.allocator, ctx, ActorType, Envelope(MsgType), options.capacity);
-        errdefer actor_interface.deinit();
+        errdefer actor_interface.deinit() catch unreachable;
 
         try self.registry.add(options.id, Envelope(MsgType), actor_interface);
         return actor_interface;

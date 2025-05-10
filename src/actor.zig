@@ -17,7 +17,7 @@ pub const ActorInterface = struct {
     ctx: *Context,
     completion: xev.Completion = undefined,
 
-    deinitFnPtr: *const fn (ptr: *anyopaque) void,
+    deinitFnPtr: *const fn (ptr: *anyopaque) anyerror!void,
 
     const Self = @This();
 
@@ -66,9 +66,13 @@ pub const ActorInterface = struct {
         self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
     }
 
-    pub fn deinit(self: *Self) void {
+    pub fn deinit(self: *Self) anyerror!void {
+        try self.deinitCore();
+        try self.deinitFnPtr(self.ptr);
+    }
+
+    pub fn deinitCore(self: *Self) anyerror!void {
         self.inbox.deinit();
-        self.deinitFnPtr(self.ptr);
     }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, msg: anytype) !void {
@@ -76,13 +80,23 @@ pub const ActorInterface = struct {
     }
 };
 
-fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) void {
+fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) anyerror!void {
     return struct {
-        fn wrapper(ptr: *anyopaque) void {
+        fn wrapper(ptr: *anyopaque) anyerror!void {
             const self = @as(*ActorType, @ptrCast(@alignCast(ptr)));
             if (comptime hasDeinitMethod(ActorType)) {
-                ActorType.deinit(self);
+                const DeinitFnType = @TypeOf(ActorType.deinit);
+                const deinit_fn_info = @typeInfo(DeinitFnType).@"fn";
+                const ActualReturnType = deinit_fn_info.return_type.?;
+
+                if (@typeInfo(ActualReturnType) == .error_union) {
+                    try ActorType.deinit(self);
+                } else {
+                    ActorType.deinit(self);
+                }
             }
+            try self.*.ctx.deinit();
+            return;
         }
     }.wrapper;
 }

@@ -19,7 +19,7 @@ pub const Registry = struct {
     pub fn deinit(self: *Registry) void {
         var it = self.actorsIDMap.iterator();
         while (it.next()) |entry| {
-            entry.value_ptr.*.deinit();
+            entry.value_ptr.*.deinit() catch unreachable;
         }
         self.actorsIDMap.deinit();
         self.actorsMessageTypeMap.deinit();

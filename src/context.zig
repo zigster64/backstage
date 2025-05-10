@@ -30,6 +30,21 @@ pub const Context = struct {
         return self;
     }
 
+    pub fn deinit(self: *Self) !void {
+        defer self.child_actors.deinit();
+        var it = self.child_actors.valueIterator();
+        while (it.next()) |actor| {
+            try actor.*.ctx.deinit();
+        }
+        if (self.parent_actor) |parent| {
+            const could_detach = parent.*.ctx.detachChildActor(self.actor);
+            if (!could_detach) {
+                return error.FailedToDetachChildActor;
+            }
+        }
+        try self.actor.deinitCore();
+    }
+
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
         try self.engine.send(self.actor, id, message);
     }
@@ -76,12 +91,12 @@ pub const Context = struct {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
         actor.ctx.parent_actor = self.actor;
         try self.child_actors.put(options.id, actor);
-        return actor;
+        std.debug.print("Amount of child actors: {}\n", .{self.child_actors.count()});
     }
-    pub fn deinitChildActor(self: *Self, actor: *ActorInterface) bool {
+    pub fn detachChildActor(self: *Self, actor: *ActorInterface) bool {
         return self.child_actors.remove(actor.ctx.actor_id);
     }
-    pub fn deinitChildActorByID(self: *Self, id: []const u8) bool {
+    pub fn detachChildActorByID(self: *Self, id: []const u8) bool {
         return self.child_actors.remove(id);
     }
 };
