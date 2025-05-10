@@ -91,7 +91,7 @@ pub const Context = struct {
         const actor = try self.engine.spawnActor(ActorType, MsgType, options);
         actor.ctx.parent_actor = self.actor;
         try self.child_actors.put(options.id, actor);
-        std.debug.print("Amount of child actors: {}\n", .{self.child_actors.count()});
+        return actor;
     }
     pub fn detachChildActor(self: *Self, actor: *ActorInterface) bool {
         return self.child_actors.remove(actor.ctx.actor_id);
