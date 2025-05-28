@@ -9,6 +9,25 @@ The main goal of this project is to gain deeper understanding of the programming
 - Actor lifecycle management
 - State isolation and encapsulation
 
+## Installation
+
+Use fetch:
+
+```bash
+zig fetch --save https://github.com/Thomvanoorschot/backstage/archive/main.tar.gz
+```
+
+Or add backstage to your build.zig.zon:
+
+```zig
+.dependencies = .{
+    .backstage = .{
+        .url = "https://github.com/Thomvanoorschot/backstage/archive/main.tar.gz",
+        .hash = "...", // Update with actual hash
+    },
+},
+```
+
 ## Learning Focus
 
 This project emphasizes:

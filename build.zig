@@ -42,12 +42,7 @@ fn buildExample(b: *std.Build, comptime exampleName: []const u8, options: Exampl
         .target = options.target,
         .optimize = options.optimize,
     });
-    const websocket_dep = b.dependency("websocket", .{
-        .target = options.target,
-        .optimize = options.optimize,
-    });
     exe.root_module.addImport("backstage", options.backstage_mod);
-    exe.root_module.addImport("websocket", websocket_dep.module("websocket"));
     exe.linkSystemLibrary("c");
 
     b.installArtifact(exe);
