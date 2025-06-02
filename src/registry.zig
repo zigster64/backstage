@@ -19,7 +19,9 @@ pub const Registry = struct {
     pub fn deinit(self: *Registry) void {
         var it = self.actorsIDMap.iterator();
         while (it.next()) |entry| {
-            entry.value_ptr.*.deinit() catch unreachable;
+            entry.value_ptr.*.deinit(true) catch |err| {
+                std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
+            };
         }
         self.actorsIDMap.deinit();
         self.actorsMessageTypeMap.deinit();

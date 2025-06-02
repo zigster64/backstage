@@ -1,5 +1,13 @@
 const std = @import("std");
 
+pub fn anyOpaqueCast(comptime Userdata: type, v: ?*anyopaque) ?*Userdata {
+    if (Userdata == void) return null;
+    return @ptrCast(@alignCast(v));
+}
+pub fn unsafeAnyOpaqueCast(comptime Userdata: type, v: ?*anyopaque) *Userdata {
+    return @ptrCast(@alignCast(v));
+}
+
 pub fn getTypeNames(comptime T: type) [if (@typeInfo(T) == .@"struct") 1 else @typeInfo(@typeInfo(T).@"union".tag_type.?).@"enum".fields.len][]const u8 {
     const type_info = @typeInfo(T);
     return switch (type_info) {

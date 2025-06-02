@@ -4,15 +4,17 @@ const eng = @import("engine.zig");
 const ctxt = @import("context.zig");
 const envlp = @import("envelope.zig");
 const xev = @import("xev");
+const type_utils = @import("type_utils.zig");
 
 const Allocator = std.mem.Allocator;
 const Inbox = inbox.Inbox;
 const Engine = eng.Engine;
 const Context = ctxt.Context;
 const Envelope = envlp.Envelope;
+const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorInterface = struct {
-    ptr: *anyopaque,
+    impl: *anyopaque,
     inbox: Inbox,
     ctx: *Context,
     completion: xev.Completion = undefined,
@@ -28,11 +30,11 @@ pub const ActorInterface = struct {
         comptime MsgType: type,
         capacity: usize,
     ) !*Self {
-        const actor_instance = try ActorType.init(ctx, allocator);
+        const actor_impl = try ActorType.init(ctx, allocator);
 
         const self = try allocator.create(Self);
         self.* = .{
-            .ptr = actor_instance,
+            .impl = actor_impl,
             .inbox = try Inbox.init(allocator, MsgType, capacity),
             .ctx = ctx,
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
@@ -50,12 +52,24 @@ pub const ActorInterface = struct {
                 c: *xev.Completion,
                 _: xev.Result,
             ) xev.CallbackAction {
-                const s: *Self = @as(*Self, @ptrCast(@alignCast(ud.?)));
+                const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
                 var msg: MsgType = undefined;
-                const received = s.inbox.receive(&msg) catch unreachable;
+                const received = inner_self.inbox.receive(&msg) catch {
+                    inner_self.deinit(true) catch |err| {
+                        std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
+                        return .disarm;
+                    };
+                    return .disarm;
+                };
                 if (received) {
-                    const actor_impl = @as(*ActorType, @ptrCast(@alignCast(s.ptr)));
-                    actor_impl.receive(&msg) catch unreachable;
+                    const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
+                    actor_impl.receive(&msg) catch {
+                        inner_self.deinit(true) catch |err| {
+                            std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
+                            return .disarm;
+                        };
+                        return .disarm;
+                    };
                     return .rearm;
                 }
 
@@ -66,17 +80,30 @@ pub const ActorInterface = struct {
         self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
     }
 
-    pub fn deinit(self: *Self) anyerror!void {
-        try self.deinitCore();
-        try self.deinitFnPtr(self.ptr);
-    }
-
-    pub fn deinitCore(self: *Self) anyerror!void {
+    pub fn deinit(self: *Self, deinit_impl: bool) anyerror!void {
+        try self.deinitChildrenAndDetachFromParent(deinit_impl);
         self.inbox.deinit();
+        if (deinit_impl) {
+            try self.deinitFnPtr(self.impl);
+        }
     }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, msg: anytype) !void {
         try self.inbox.send(Envelope(@TypeOf(msg)).init(sender, msg));
+    }
+    fn deinitChildrenAndDetachFromParent(self: *Self, deinit_impl: bool) !void {
+        var it = self.ctx.child_actors.valueIterator();
+        while (it.next()) |actor| {
+            try actor.*.deinit(deinit_impl);
+        }
+        self.ctx.child_actors.deinit();
+
+        if (self.ctx.parent_actor) |parent| {
+            const could_detach = parent.*.ctx.detachChildActor(self.ctx.actor);
+            if (!could_detach) {
+                return error.FailedToDetachChildActor;
+            }
+        }
     }
 };
 

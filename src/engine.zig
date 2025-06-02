@@ -55,7 +55,9 @@ pub const Engine = struct {
         }
         const ctx = try Context.init(self.allocator, self, options.id);
         const actor_interface = try ActorInterface.create(self.allocator, ctx, ActorType, Envelope(MsgType), options.capacity);
-        errdefer actor_interface.deinit() catch unreachable;
+        errdefer actor_interface.deinit(true) catch |err| {
+            std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
+        };
 
         try self.registry.add(options.id, Envelope(MsgType), actor_interface);
         return actor_interface;

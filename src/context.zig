@@ -3,12 +3,14 @@ const reg = @import("registry.zig");
 const act = @import("actor.zig");
 const eng = @import("engine.zig");
 const xev = @import("xev");
+const type_utils = @import("type_utils.zig");
 
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Engine = eng.Engine;
 const SpawnActorOptions = eng.SpawnActorOptions;
+const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const Context = struct {
     actor_id: []const u8,
@@ -31,18 +33,7 @@ pub const Context = struct {
     }
 
     pub fn deinit(self: *Self) !void {
-        defer self.child_actors.deinit();
-        var it = self.child_actors.valueIterator();
-        while (it.next()) |actor| {
-            try actor.*.ctx.deinit();
-        }
-        if (self.parent_actor) |parent| {
-            const could_detach = parent.*.ctx.detachChildActor(self.actor);
-            if (!could_detach) {
-                return error.FailedToDetachChildActor;
-            }
-        }
-        try self.actor.deinitCore();
+        return self.actor.deinit(false);
     }
 
     pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
@@ -71,8 +62,11 @@ pub const Context = struct {
                 c: *xev.Completion,
                 _: xev.Result,
             ) xev.CallbackAction {
-                const actor = @as(*ActorType, @ptrCast(@alignCast(ud.?)));
-                callback_fn(actor) catch unreachable;
+                const actor = unsafeAnyOpaqueCast(ActorType, ud);
+                callback_fn(actor) catch |err| {
+                    std.log.err("Failed to run callback: {s}", .{@errorName(err)});
+                    return .disarm;
+                };
                 loop.timer(c, delay_ms, ud, inner);
                 return .disarm;
             }
