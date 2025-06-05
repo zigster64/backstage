@@ -1,79 +1,116 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
+const envlp = @import("envelope.zig");
+
+const Envelope = envlp.Envelope;
 
 pub const Inbox = struct {
-    fifo: std.fifo.LinearFifo(u8, .Dynamic),
-    allocator: Allocator,
-    msg_type_size: usize,
+    allocator: std.mem.Allocator,
+    buffer: []u8,
+    capacity: usize,
+    head: usize,
+    tail: usize,
+    len: usize,
 
-    const Self = @This();
+    pub fn init(allocator: std.mem.Allocator, initial_capacity: usize) !*Inbox {
+        var cap = @max(1, initial_capacity);
+        if (!std.math.isPowerOfTwo(cap)) {
+            cap = std.math.ceilPowerOfTwo(usize, cap) catch unreachable;
+        }
 
-    pub fn init(allocator: Allocator, comptime T: type, capacity: usize) !Self {
-        const msg_type_size = @sizeOf(T);
-
-        var fifo = std.fifo.LinearFifo(u8, .Dynamic).init(allocator);
-        try fifo.ensureTotalCapacity(msg_type_size * capacity);
-
-        return .{
-            .fifo = fifo,
+        const buf = try allocator.alloc(u8, cap);
+        const inbox = try allocator.create(Inbox);
+        inbox.* = .{
             .allocator = allocator,
-            .msg_type_size = msg_type_size,
+            .buffer = buf,
+            .capacity = cap,
+            .head = 0,
+            .tail = 0,
+            .len = 0,
         };
+        return inbox;
     }
 
-    pub fn deinit(self: *Self) void {
-        self.fifo.deinit();
+    pub fn deinit(self: *Inbox) void {
+        self.allocator.free(self.buffer);
+        self.allocator.destroy(self);
     }
 
-    pub fn send(self: *Self, message: anytype) !void {
-        const msg_size = @sizeOf(@TypeOf(message));
-        if (msg_size != self.msg_type_size) {
-            return error.InvalidMessageSize;
+    pub fn isEmpty(self: *const Inbox) bool {
+        return self.len == 0;
+    }
+
+    fn isFull(self: *const Inbox, needed: usize) bool {
+        return (self.capacity - self.len) < needed;
+    }
+
+    pub fn enqueue(self: *Inbox, envelope: Envelope) !void {
+        const header_size = @sizeOf(usize);
+        const envelope_bytes = try envelope.toBytes(self.allocator);
+        const msg_len = envelope_bytes.len;
+        const total_needed = header_size + msg_len;
+
+        if (self.isFull(total_needed)) {
+            try self.grow(self.capacity * 2);
         }
 
-        if (self.fifo.writableLength() < msg_size) {
-            return error.BufferFull;
+        var len_header: [@sizeOf(usize)]u8 = undefined;
+        std.mem.writeInt(usize, &len_header, msg_len, .little);
+
+        for (len_header) |byte| {
+            self.buffer[self.tail] = byte;
+            self.tail = (self.tail + 1) & (self.capacity - 1);
         }
 
-        const bytes = std.mem.asBytes(&message);
-        self.fifo.writeAssumeCapacity(bytes);
-
-        return;
+        for (envelope_bytes) |byte| {
+            self.buffer[self.tail] = byte;
+            self.tail = (self.tail + 1) & (self.capacity - 1);
+        }
+        std.log.info("Enqueued message of length {d}", .{total_needed});
+        self.len += total_needed;
     }
 
-    pub fn receive(self: *Self, value: anytype) !bool {
-        const value_size = @sizeOf(@TypeOf(value.*));
-        if (value_size != self.msg_type_size) {
-            return error.InvalidMessageSize;
+    pub fn dequeue(self: *Inbox) !?[]const u8 {
+        if (self.isEmpty()) {
+            return null;
         }
 
-        if (self.fifo.readableLength() < value_size) {
-            return false;
+        const header_size = @sizeOf(usize);
+
+        var len_bytes: [@sizeOf(usize)]u8 = undefined;
+        for (&len_bytes) |*b| {
+            b.* = self.buffer[self.head];
+            self.head = (self.head + 1) & (self.capacity - 1);
+        }
+        const msg_len = std.mem.readInt(usize, &len_bytes, .little);
+
+        const msg_buf = try self.allocator.alloc(u8, msg_len);
+        var idx: usize = 0;
+        while (idx < msg_len) : (idx += 1) {
+            msg_buf[idx] = self.buffer[self.head];
+            self.head = (self.head + 1) & (self.capacity - 1);
         }
 
-        const value_bytes = std.mem.asBytes(value);
+        self.len -= (header_size + msg_len);
+        return msg_buf;
+    }
 
-        const bytes_read = self.fifo.read(value_bytes[0..value_size]);
-        if (bytes_read != value_size) {
-            return error.IncompleteRead;
+    fn grow(self: *Inbox, new_cap: usize) !void {
+        const new_buf = try self.allocator.alloc(u8, new_cap);
+
+        var read_pos = self.head;
+        var write_pos: usize = 0;
+        var remaining = self.len;
+        while (remaining > 0) : (remaining -= 1) {
+            new_buf[write_pos] = self.buffer[read_pos];
+            read_pos = (read_pos + 1) & (self.capacity - 1);
+            write_pos += 1;
         }
 
-        return true;
-    }
+        self.allocator.free(self.buffer);
 
-    pub fn tryReceive(self: *Self, value: anytype) bool {
-        return self.receive(value) catch false;
-    }
-
-    pub fn isEmpty(self: *Self) bool {
-        return self.fifo.readableLength() == 0;
-    }
-
-    pub fn isFull(self: *Self) bool {
-        return self.fifo.writableLength() < self.msg_type_size;
-    }
-
-    pub fn messageCount(self: *Self) usize {
-        return self.fifo.readableLength() / self.msg_type_size;
+        self.buffer = new_buf;
+        self.capacity = new_cap;
+        self.head = 0;
+        self.tail = write_pos;
     }
 };

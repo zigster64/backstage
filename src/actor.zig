@@ -15,7 +15,7 @@ const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorInterface = struct {
     impl: *anyopaque,
-    inbox: Inbox,
+    inbox: *Inbox,
     ctx: *Context,
     completion: xev.Completion = undefined,
 
@@ -27,24 +27,22 @@ pub const ActorInterface = struct {
         allocator: Allocator,
         ctx: *Context,
         comptime ActorType: type,
-        comptime MsgType: type,
+        actor_impl: *anyopaque,
         capacity: usize,
     ) !*Self {
-        const actor_impl = try ActorType.init(ctx, allocator);
-
         const self = try allocator.create(Self);
         self.* = .{
             .impl = actor_impl,
-            .inbox = try Inbox.init(allocator, MsgType, capacity),
+            .inbox = try Inbox.init(allocator, capacity),
             .ctx = ctx,
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
         };
         ctx.actor = self;
-        try self.listenForMessages(ActorType, MsgType);
+        try self.listenForMessages(ActorType);
 
         return self;
     }
-    fn listenForMessages(self: *Self, comptime ActorType: type, comptime MsgType: type) !void {
+    fn listenForMessages(self: *Self, comptime ActorType: type) !void {
         const listenForMessagesFn = struct {
             fn inner(
                 ud: ?*anyopaque,
@@ -53,17 +51,16 @@ pub const ActorInterface = struct {
                 _: xev.Result,
             ) xev.CallbackAction {
                 const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
-                var msg: MsgType = undefined;
-                const received = inner_self.inbox.receive(&msg) catch {
+                const maybe_bytes = inner_self.inbox.dequeue() catch {
                     inner_self.deinit(true) catch |err| {
                         std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                         return .disarm;
                     };
                     return .disarm;
                 };
-                if (received) {
+                if (maybe_bytes) |bytes| {
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
-                    actor_impl.receive(&msg) catch {
+                    actor_impl.receive(bytes) catch {
                         inner_self.deinit(true) catch |err| {
                             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                             return .disarm;
@@ -88,8 +85,11 @@ pub const ActorInterface = struct {
         }
     }
 
-    pub fn send(self: *Self, sender: ?*ActorInterface, msg: anytype) !void {
-        try self.inbox.send(Envelope(@TypeOf(msg)).init(sender, msg));
+    pub fn send(self: *Self, sender: ?*ActorInterface, msg: []const u8) !void {
+        try self.inbox.enqueue(Envelope.init(
+            if (sender) |s| s.ctx.actor_id else null,
+            msg,
+        ));
     }
     fn deinitChildrenAndDetachFromParent(self: *Self, deinit_impl: bool) !void {
         var it = self.ctx.child_actors.valueIterator();

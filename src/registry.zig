@@ -32,17 +32,17 @@ pub const Registry = struct {
     }
 
     // TODO This obviously needs to return a slice of actors
-    pub fn getByMessageType(self: *Registry, message: anytype) ?ActorInterface {
-        const active_type_name = type_utils.getActiveTypeName(message);
-        return self.actorsMessageTypeMap.get(active_type_name);
-    }
+    // pub fn getByMessageType(self: *Registry, message: anytype) ?ActorInterface {
+    //     const active_type_name = type_utils.getActiveTypeName(message);
+    //     return self.actorsMessageTypeMap.get(active_type_name);
+    // }
 
-    pub fn add(self: *Registry, id: []const u8, comptime MsgType: type, actor: *ActorInterface) !void {
-        const message_type_names = type_utils.getTypeNames(MsgType);
+    pub fn add(self: *Registry, id: []const u8, actor: *ActorInterface) !void {
+        // const message_type_names = type_utils.getTypeNames(MsgType);
 
         try self.actorsIDMap.put(id, actor);
-        for (message_type_names) |messageType| {
-            try self.actorsMessageTypeMap.put(messageType, actor);
-        }
+        // for (message_type_names) |messageType| {
+        //     try self.actorsMessageTypeMap.put(messageType, actor);
+        // }
     }
 };

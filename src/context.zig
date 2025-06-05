@@ -9,7 +9,7 @@ const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Engine = eng.Engine;
-const SpawnActorOptions = eng.SpawnActorOptions;
+const ActorOptions = eng.ActorOptions;
 const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const Context = struct {
@@ -36,7 +36,7 @@ pub const Context = struct {
         return self.actor.deinit(false);
     }
 
-    pub fn send(self: *const Self, id: []const u8, message: anytype) !void {
+    pub fn send(self: *const Self, id: []const u8, message: []const u8) !void {
         try self.engine.send(self.actor, id, message);
     }
     pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !ResultType {
@@ -78,11 +78,11 @@ pub const Context = struct {
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.registry.getByID(id);
     }
-    pub fn spawnActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
-        return try self.engine.spawnActor(ActorType, MsgType, options);
+    pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
+        return try self.engine.spawnActor(ActorType, options);
     }
-    pub fn spawnChildActor(self: *Self, comptime ActorType: type, comptime MsgType: type, options: SpawnActorOptions) !*ActorInterface {
-        const actor = try self.engine.spawnActor(ActorType, MsgType, options);
+    pub fn spawnChildActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
+        const actor = try self.engine.spawnActor(ActorType, options);
         actor.ctx.parent_actor = self.actor;
         try self.child_actors.put(options.id, actor);
         return actor;
