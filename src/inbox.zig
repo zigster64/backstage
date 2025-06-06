@@ -65,11 +65,10 @@ pub const Inbox = struct {
             self.buffer[self.tail] = byte;
             self.tail = (self.tail + 1) & (self.capacity - 1);
         }
-        std.log.info("Enqueued message of length {d}", .{total_needed});
         self.len += total_needed;
     }
 
-    pub fn dequeue(self: *Inbox) !?[]const u8 {
+    pub fn dequeue(self: *Inbox) !?Envelope {
         if (self.isEmpty()) {
             return null;
         }
@@ -91,7 +90,7 @@ pub const Inbox = struct {
         }
 
         self.len -= (header_size + msg_len);
-        return msg_buf;
+        return try Envelope.fromBytes(msg_buf);
     }
 
     fn grow(self: *Inbox, new_cap: usize) !void {

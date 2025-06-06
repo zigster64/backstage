@@ -51,16 +51,16 @@ pub const ActorInterface = struct {
                 _: xev.Result,
             ) xev.CallbackAction {
                 const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
-                const maybe_bytes = inner_self.inbox.dequeue() catch {
+                const maybe_envelope = inner_self.inbox.dequeue() catch {
                     inner_self.deinit(true) catch |err| {
                         std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                         return .disarm;
                     };
                     return .disarm;
                 };
-                if (maybe_bytes) |bytes| {
+                if (maybe_envelope) |envelope| {
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
-                    actor_impl.receive(bytes) catch {
+                    actor_impl.receive(envelope) catch {
                         inner_self.deinit(true) catch |err| {
                             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                             return .disarm;
