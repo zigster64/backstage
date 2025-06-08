@@ -33,9 +33,6 @@ pub const Context = struct {
     }
 
     pub fn deinit(self: *Self) !void {
-        if (!self.engine.registry.actorsIDMap.remove(self.actor_id)) {
-            return error.FailedToRemoveActorFromRegistry;
-        }
         if (self.child_actors.count() != 0) {
             var it = self.child_actors.valueIterator();
             while (it.next()) |actor| {
@@ -50,7 +47,7 @@ pub const Context = struct {
                 return error.FailedToDetachChildActor;
             }
         }
-        try self.actor.deinit();
+        try self.engine.deinitActor(self.actor_id);
     }
 
     pub fn send(self: *const Self, id: []const u8, message: []const u8) !void {

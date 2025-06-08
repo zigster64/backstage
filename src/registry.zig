@@ -18,6 +18,14 @@ pub const Registry = struct {
         self.actorsIDMap.deinit();
     }
 
+    pub fn fetchRemove(self: *Registry, id: []const u8) ?*ActorInterface {
+        const keyval = self.actorsIDMap.fetchRemove(id);
+        if (keyval) |kv| {
+            return kv.value;
+        }
+        return null;
+    }
+
     pub fn getByID(self: *Registry, id: []const u8) ?*ActorInterface {
         return self.actorsIDMap.get(id);
     }

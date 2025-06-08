@@ -60,6 +60,13 @@ pub const Engine = struct {
         try self.registry.add(options.id, actor_interface);
         return actor_interface;
     }
+    pub fn deinitActor(self: *Self, id: []const u8) !void {
+        const actor = self.registry.fetchRemove(id);
+        if (actor) |a| {
+            try a.deinit();
+            self.allocator.destroy(a);
+        }
+    }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, id: []const u8, message: []const u8) !void {
         const actor = self.registry.getByID(id);
