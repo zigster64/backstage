@@ -11,6 +11,7 @@ const Inbox = inbox.Inbox;
 const Engine = eng.Engine;
 const Context = ctxt.Context;
 const Envelope = envlp.Envelope;
+const ActorOptions = eng.ActorOptions;
 const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorInterface = struct {
@@ -25,15 +26,15 @@ pub const ActorInterface = struct {
 
     pub fn create(
         allocator: Allocator,
-        ctx: *Context,
+        engine: *Engine,
         comptime ActorType: type,
-        actor_impl: *anyopaque,
-        capacity: usize,
+        options: ActorOptions,
     ) !*Self {
         const self = try allocator.create(Self);
+        const ctx = try Context.init(allocator, engine, options.id);
         self.* = .{
-            .impl = actor_impl,
-            .inbox = try Inbox.init(allocator, capacity),
+            .impl = try ActorType.init(ctx, allocator),
+            .inbox = try Inbox.init(allocator, options.capacity),
             .ctx = ctx,
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
         };
@@ -52,7 +53,7 @@ pub const ActorInterface = struct {
             ) xev.CallbackAction {
                 const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
                 const maybe_envelope = inner_self.inbox.dequeue() catch {
-                    inner_self.deinit() catch |err| {
+                    inner_self.deinitFnPtr(inner_self.impl) catch |err| {
                         std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                         return .disarm;
                     };
@@ -62,7 +63,7 @@ pub const ActorInterface = struct {
                 if (maybe_envelope) |envelope| {
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
                     actor_impl.receive(envelope) catch {
-                        inner_self.deinit() catch |err| {
+                        inner_self.deinitFnPtr(inner_self.impl) catch |err| {
                             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                             return .disarm;
                         };

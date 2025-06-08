@@ -18,18 +18,12 @@ pub const Engine = struct {
     registry: Registry,
     allocator: Allocator,
     loop: xev.Loop,
-    thread_pool: xev.ThreadPool,
     const Self = @This();
     pub fn init(allocator: Allocator) !Self {
-        var thread_pool = xev.ThreadPool.init(.{});
-
         return .{
             .registry = Registry.init(allocator),
             .allocator = allocator,
-            .thread_pool = thread_pool,
-            .loop = try xev.Loop.init(.{
-                .thread_pool = &thread_pool,
-            }),
+            .loop = try xev.Loop.init(.{}),
         };
     }
 
@@ -40,8 +34,6 @@ pub const Engine = struct {
     pub fn deinit(self: *Self) void {
         self.loop.deinit();
         self.registry.deinit();
-        self.thread_pool.deinit();
-        self.thread_pool.shutdown();
     }
 
     pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
@@ -49,15 +41,12 @@ pub const Engine = struct {
         if (actor) |a| {
             return a;
         }
-        const ctx = try Context.init(self.allocator, self, options.id);
-        const actor_impl = try ActorType.init(ctx, self.allocator);
 
         const actor_interface = try ActorInterface.create(
             self.allocator,
-            ctx,
+            self,
             ActorType,
-            actor_impl,
-            options.capacity,
+            options,
         );
         errdefer actor_interface.deinitFnPtr(actor_interface.impl) catch |err| {
             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
