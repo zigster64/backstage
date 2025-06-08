@@ -19,6 +19,7 @@ pub const ActorInterface = struct {
     inbox: *Inbox,
     ctx: *Context,
     completion: xev.Completion = undefined,
+    arena_state: std.heap.ArenaAllocator,
 
     deinitFnPtr: *const fn (ptr: *anyopaque) anyerror!void,
 
@@ -31,14 +32,24 @@ pub const ActorInterface = struct {
         options: ActorOptions,
     ) !*Self {
         const self = try allocator.create(Self);
-        const ctx = try Context.init(allocator, engine, options.id);
         self.* = .{
-            .impl = try ActorType.init(ctx, allocator),
-            .inbox = try Inbox.init(allocator, options.capacity),
-            .ctx = ctx,
+            .arena_state = std.heap.ArenaAllocator.init(allocator),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
+            .inbox = undefined,
+            .ctx = undefined,
+            .impl = undefined,
         };
-        ctx.actor = self;
+        errdefer self.arena_state.deinit();
+        const ctx = try Context.init(
+            self.arena_state.allocator(),
+            engine,
+            self,
+            options.id,
+        );
+        self.ctx = ctx;
+        self.impl = try ActorType.init(ctx, self.arena_state.allocator());
+        self.inbox = try Inbox.init(self.arena_state.allocator(), options.capacity);
+
         try self.listenForMessages(ActorType);
 
         return self;
@@ -82,6 +93,7 @@ pub const ActorInterface = struct {
 
     pub fn deinit(self: *Self) anyerror!void {
         self.inbox.deinit();
+        self.arena_state.deinit();
     }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, msg: []const u8) !void {

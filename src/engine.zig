@@ -33,6 +33,12 @@ pub const Engine = struct {
 
     pub fn deinit(self: *Self) void {
         self.loop.deinit();
+        var it = self.registry.actorsIDMap.iterator();
+        while (it.next()) |entry| {
+            entry.value_ptr.*.deinitFnPtr(entry.value_ptr.*.impl) catch |err| {
+                std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
+            };
+        }
         self.registry.deinit();
     }
 
@@ -41,7 +47,6 @@ pub const Engine = struct {
         if (actor) |a| {
             return a;
         }
-
         const actor_interface = try ActorInterface.create(
             self.allocator,
             self,

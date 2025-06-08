@@ -32,7 +32,6 @@ pub const Inbox = struct {
 
     pub fn deinit(self: *Inbox) void {
         self.allocator.free(self.buffer);
-        self.allocator.destroy(self);
     }
 
     pub fn isEmpty(self: *const Inbox) bool {

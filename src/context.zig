@@ -20,13 +20,13 @@ pub const Context = struct {
     child_actors: std.StringHashMap(*ActorInterface),
 
     const Self = @This();
-    pub fn init(allocator: Allocator, engine: *Engine, actor_id: []const u8) !*Self {
+    pub fn init(allocator: Allocator, engine: *Engine, actor: *ActorInterface, actor_id: []const u8) !*Self {
         const self = try allocator.create(Self);
         self.* = .{
             .engine = engine,
             .child_actors = std.StringHashMap(*ActorInterface).init(allocator),
             .parent_actor = null,
-            .actor = undefined,
+            .actor = actor,
             .actor_id = actor_id,
         };
         return self;
