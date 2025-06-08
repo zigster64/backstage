@@ -38,10 +38,10 @@ pub const Engine = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        self.loop.deinit();
         self.registry.deinit();
         self.thread_pool.deinit();
         self.thread_pool.shutdown();
-        self.loop.deinit();
     }
 
     pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
@@ -59,7 +59,7 @@ pub const Engine = struct {
             actor_impl,
             options.capacity,
         );
-        errdefer actor_interface.deinit(true) catch |err| {
+        errdefer actor_interface.deinitFnPtr(actor_interface.impl) catch |err| {
             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
         };
 

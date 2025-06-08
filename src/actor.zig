@@ -52,22 +52,24 @@ pub const ActorInterface = struct {
             ) xev.CallbackAction {
                 const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
                 const maybe_envelope = inner_self.inbox.dequeue() catch {
-                    inner_self.deinit(true) catch |err| {
+                    inner_self.deinit() catch |err| {
                         std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                         return .disarm;
                     };
+                    loop.timer(c, 0, ud, inner);
                     return .disarm;
                 };
                 if (maybe_envelope) |envelope| {
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
                     actor_impl.receive(envelope) catch {
-                        inner_self.deinit(true) catch |err| {
+                        inner_self.deinit() catch |err| {
                             std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
                             return .disarm;
                         };
                         return .disarm;
                     };
-                    return .rearm;
+                    loop.timer(c, 0, ud, inner);
+                    return .disarm;
                 }
 
                 loop.timer(c, 0, ud, inner);
@@ -77,12 +79,8 @@ pub const ActorInterface = struct {
         self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
     }
 
-    pub fn deinit(self: *Self, deinit_impl: bool) anyerror!void {
-        try self.deinitChildrenAndDetachFromParent(deinit_impl);
+    pub fn deinit(self: *Self) anyerror!void {
         self.inbox.deinit();
-        if (deinit_impl) {
-            try self.deinitFnPtr(self.impl);
-        }
     }
 
     pub fn send(self: *Self, sender: ?*ActorInterface, msg: []const u8) !void {
@@ -90,20 +88,6 @@ pub const ActorInterface = struct {
             if (sender) |s| s.ctx.actor_id else null,
             msg,
         ));
-    }
-    fn deinitChildrenAndDetachFromParent(self: *Self, deinit_impl: bool) !void {
-        var it = self.ctx.child_actors.valueIterator();
-        while (it.next()) |actor| {
-            try actor.*.deinit(deinit_impl);
-        }
-        self.ctx.child_actors.deinit();
-
-        if (self.ctx.parent_actor) |parent| {
-            const could_detach = parent.*.ctx.detachChildActor(self.ctx.actor);
-            if (!could_detach) {
-                return error.FailedToDetachChildActor;
-            }
-        }
     }
 };
 
@@ -122,7 +106,6 @@ fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) anyerror!voi
                     ActorType.deinit(self);
                 }
             }
-            try self.*.ctx.deinit();
             return;
         }
     }.wrapper;
