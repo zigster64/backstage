@@ -32,7 +32,7 @@ pub const Context = struct {
         return self;
     }
 
-    pub fn deinit(self: *Self) !void {
+    pub fn shutdown(self: *Self) !void {
         if (self.child_actors.count() != 0) {
             var it = self.child_actors.valueIterator();
             while (it.next()) |actor| {
@@ -42,12 +42,10 @@ pub const Context = struct {
         }
 
         if (self.parent_actor) |parent| {
-            const could_detach = parent.*.ctx.detachChildActor(self.actor);
-            if (!could_detach) {
-                return error.FailedToDetachChildActor;
-            }
+            _ = parent.*.ctx.detachChildActor(self.actor);
         }
-        try self.engine.deinitActor(self.actor_id);
+
+        try self.engine.removeAndCleanupActor(self.actor_id);
     }
 
     pub fn send(self: *const Self, id: []const u8, message: []const u8) !void {
@@ -106,5 +104,26 @@ pub const Context = struct {
     }
     pub fn detachChildActorByID(self: *Self, id: []const u8) bool {
         return self.child_actors.remove(id);
+    }
+
+    pub fn shutdownFramework(self: *Self) !void {
+        if (self.child_actors.count() != 0) {
+            var it = self.child_actors.valueIterator();
+            while (it.next()) |actor| {
+                // Recursively clean up children
+                if (actor.*.deinitFnPtr) |deinit_fn| {
+                    deinit_fn(actor.*.impl) catch |err| {
+                        std.log.err("Child actor deinit failed: {}", .{err});
+                    };
+                }
+            }
+            self.child_actors.deinit();
+        }
+
+        if (self.parent_actor) |parent| {
+            _ = parent.*.ctx.detachChildActor(self.actor);
+        }
+
+        _ = self.engine.registry.fetchRemove(self.actor_id);
     }
 };

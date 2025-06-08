@@ -60,10 +60,10 @@ pub const Engine = struct {
         try self.registry.add(options.id, actor_interface);
         return actor_interface;
     }
-    pub fn deinitActor(self: *Self, id: []const u8) !void {
+    pub fn removeAndCleanupActor(self: *Self, id: []const u8) !void {
         const actor = self.registry.fetchRemove(id);
         if (actor) |a| {
-            try a.deinit();
+            a.cleanupFrameworkResources();
             self.allocator.destroy(a);
         }
     }
@@ -76,12 +76,6 @@ pub const Engine = struct {
             return error.ActorNotFound;
         }
     }
-    // pub fn broadcast(self: *Self, sender: ?*const ActorInterface, message: anytype) !void {
-    //     const actor = self.registry.getByMessageType(message);
-    //     if (actor) |a| {
-    //         try a.send(sender, message);
-    //     }
-    // }
 
     pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
         // Needs to be reimplemented

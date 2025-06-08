@@ -91,7 +91,7 @@ pub const ActorInterface = struct {
         self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
     }
 
-    pub fn deinit(self: *Self) anyerror!void {
+    pub fn cleanupFrameworkResources(self: *Self) void {
         self.inbox.deinit();
         self.arena_state.deinit();
     }
@@ -118,8 +118,9 @@ fn makeTypeErasedDeinitFn(comptime ActorType: type) fn (*anyopaque) anyerror!voi
                 } else {
                     ActorType.deinit(self);
                 }
+            } else {
+                return error.ActorDoesNotHaveDeinitMethod;
             }
-            return;
         }
     }.wrapper;
 }
