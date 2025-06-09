@@ -45,15 +45,7 @@ zig fetch --save https://github.com/Thomvanoorschot/backstage/archive/main.tar.g
 ```zig
 const std = @import("std");
 const backstage = @import("backstage");
-
-// Define your message
-pub const ListenToTheseMessages = union(enum) {
-    init: InitMessage,
-};
-
-pub const InitMessage = struct {
-    example: []const u8,
-}
+const Envelope = backstage.Envelope;
 
 // Define your actor
 const MyActor = struct {
@@ -70,10 +62,15 @@ const MyActor = struct {
         return self;
     }
 
-    pub fn receive(self: *Self(), envelope: *const backstage.Envelope(ListenToTheseMessages)) !void {
-        switch (message.payload) {
+    pub fn receive(self: *Self(), envelope: Envelope) !void {
+        // This example shows zig-protobuf encoded payloads, any encoding (or none at all) would work
+        const actor_msg: MyActorMessage = try MyActorMessage.decode(message.payload, self.allocator);
+        if (actor_msg.message == null) {
+            return error.InvalidMessage;
+        }
+        switch (actor_msg.message.?) {
             .init => |m| {
-                std.log.info("Received message {}", .{m});
+                std.log.info("Received message {}", .{m.example});
             }
         }
     }
@@ -93,13 +90,22 @@ pub fn main() !void {
     defer engine.deinit();
 
     // Spawn an actor
-    const actor = try engine.spawnActor(MyActor, []const u8, .{
+    const actor = try engine.spawnActor(MyActor .{
         .id = "my-actor",
         .capacity = 1024,
     });
 
     // Send a message
-    try engine.send(null, "other_arbitrary_actor_id", ListenToTheseMessages{ .init = .{ .example = "Hello, World!" } });
+    const my_actor_msg = MyActorMessage{ .message = .{
+        .init = .{
+            .example = ManagedString.static("Hello, World!")
+        },
+    } };
+
+    const my_actor_msg_bytes = try update_orderbook_msg.encode(allocator);
+    defer allocator.free(my_actor_msg_bytes);
+    try engine.send(null, "my-actor", my_actor_msg_bytes);
+
 
     // Run the event loop
     try engine.run();
