@@ -18,6 +18,7 @@ pub const Context = struct {
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
     child_actors: std.StringHashMap(*ActorInterface),
+    topic_subscriptions: std.StringHashMap(std.StringHashMap(void)),
 
     const Self = @This();
     pub fn init(allocator: Allocator, engine: *Engine, actor: *ActorInterface, actor_id: []const u8) !*Self {
@@ -28,6 +29,7 @@ pub const Context = struct {
             .parent_actor = null,
             .actor = actor,
             .actor_id = actor_id,
+            .topic_subscriptions = std.StringHashMap(std.StringHashMap(void)).init(allocator),
         };
         return self;
     }
@@ -40,6 +42,7 @@ pub const Context = struct {
             }
             self.child_actors.deinit();
         }
+        // TODO Deinit subscribed_actor_ids
 
         if (self.parent_actor) |parent| {
             _ = parent.*.ctx.detachChildActor(self.actor);
@@ -48,11 +51,36 @@ pub const Context = struct {
         try self.engine.removeAndCleanupActor(self.actor_id);
     }
 
-    pub fn send(self: *const Self, id: []const u8, message: []const u8) !void {
-        try self.engine.send(self.actor, id, message);
+    pub fn send(self: *const Self, target_id: []const u8, message: []const u8) !void {
+        try self.engine.send(self.actor_id, target_id, .send, message);
     }
-    pub fn request(self: *const Self, id: []const u8, message: anytype, comptime ResultType: type) !ResultType {
-        return try self.engine.request(self.actor, id, message, ResultType);
+
+    pub fn publish(self: *const Self, message: []const u8) !void {
+        try self.publishToTopic("default", message);
+    }
+
+    pub fn publishToTopic(self: *const Self, topic: []const u8, message: []const u8) !void {
+        if (self.topic_subscriptions.get(topic)) |subscribers| {
+            var it = subscribers.keyIterator();
+            while (it.next()) |id| {
+                try self.engine.send(self.actor_id, id.*, .publish, message);
+            }
+        }
+    }
+    pub fn subscribeToActor(self: *const Self, target_id: []const u8) !void {
+        try self.subscribeToActorTopic(target_id, "default");
+    }
+
+    pub fn subscribeToActorTopic(self: *const Self, target_id: []const u8, topic: []const u8) !void {
+        try self.engine.subscribeToActorTopic(self.actor_id, target_id, topic);
+    }
+
+    pub fn unsubscribeFromActor(self: *const Self, target_id: []const u8) !void {
+        try self.unsubscribeFromActorTopic(target_id, "default");
+    }
+
+    pub fn unsubscribeFromActorTopic(self: *const Self, target_id: []const u8, topic: []const u8) !void {
+        try self.engine.unsubscribeFromActorTopic(self.actor_id, target_id, topic);
     }
 
     pub fn getLoop(self: *const Self) *xev.Loop {
@@ -90,13 +118,14 @@ pub const Context = struct {
     pub fn getActor(self: *const Self, id: []const u8) ?*ActorInterface {
         return self.engine.registry.getByID(id);
     }
-    pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
+    pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorType {
         return try self.engine.spawnActor(ActorType, options);
     }
-    pub fn spawnChildActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
+    pub fn spawnChildActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorType {
         const actor = try self.engine.spawnActor(ActorType, options);
         actor.ctx.parent_actor = self.actor;
-        try self.child_actors.put(options.id, actor);
+        // TODO Find a way to make this work again
+        // try self.child_actors.put(options.id, actor);
         return actor;
     }
     pub fn detachChildActor(self: *Self, actor: *ActorInterface) bool {

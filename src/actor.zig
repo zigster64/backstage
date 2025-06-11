@@ -58,37 +58,56 @@ pub const ActorInterface = struct {
         const listenForMessagesFn = struct {
             fn inner(
                 ud: ?*anyopaque,
-                loop: *xev.Loop,
-                c: *xev.Completion,
+                _: *xev.Loop,
+                _: *xev.Completion,
                 _: xev.Result,
             ) xev.CallbackAction {
-                const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
-                const maybe_envelope = inner_self.inbox.dequeue() catch {
-                    inner_self.deinitFnPtr(inner_self.impl) catch |err| {
-                        std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
-                        return .disarm;
-                    };
-                    loop.timer(c, 0, ud, inner);
+                const actor_interface: *Self = unsafeAnyOpaqueCast(Self, ud);
+
+                const maybe_envelope = actor_interface.inbox.dequeue() catch |err| {
+                    std.log.err("Tried to dequeue from inbox but failed: {s}", .{@errorName(err)});
                     return .disarm;
                 };
-                if (maybe_envelope) |envelope| {
-                    const actor_impl = @as(*ActorType, @ptrCast(@alignCast(inner_self.impl)));
-                    actor_impl.receive(envelope) catch {
-                        inner_self.deinitFnPtr(inner_self.impl) catch |err| {
-                            std.log.err("Failed to deinit actor: {s}", .{@errorName(err)});
-                            return .disarm;
-                        };
-                        return .disarm;
-                    };
-                    loop.timer(c, 0, ud, inner);
-                    return .disarm;
-                }
 
+                if (maybe_envelope) |envelope| {
+                    const actor_impl = @as(*ActorType, @ptrCast(@alignCast(actor_interface.impl)));
+
+                    switch (envelope.message_type) {
+                        .send => {
+                            actor_impl.receive(envelope) catch |err| {
+                                std.log.err("Tried to receive message but failed: {s}", .{@errorName(err)});
+                            };
+                        },
+                        .subscribe => {
+                            actor_interface.addSubscriber(envelope.message, envelope.sender_id.?) catch |err| {
+                                std.log.err("Tried to put topic subscription but failed: {s}", .{@errorName(err)});
+                            };
+                        },
+                        .publish => {
+                            actor_impl.receive(envelope) catch |err| {
+                                std.log.err("Tried to receive message but failed: {s}", .{@errorName(err)});
+                            };
+                            // std.log.info("Received publish message: {s}", .{envelope.message});
+                        },
+                        else => {},
+                    }
+                }
+                return .disarm;
+            }
+        }.inner;
+        const repeatFn = struct {
+            fn inner(
+                ud: ?*anyopaque,
+                loop: *xev.Loop,
+                c: *xev.Completion,
+                r: xev.Result,
+            ) xev.CallbackAction {
+                _ = listenForMessagesFn(ud, loop, c, r);
                 loop.timer(c, 0, ud, inner);
                 return .disarm;
             }
         }.inner;
-        self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), listenForMessagesFn);
+        self.ctx.engine.loop.timer(&self.completion, 0, @ptrCast(self), repeatFn);
     }
 
     pub fn cleanupFrameworkResources(self: *Self) void {
@@ -96,11 +115,25 @@ pub const ActorInterface = struct {
         self.arena_state.deinit();
     }
 
-    pub fn send(self: *Self, sender: ?*ActorInterface, msg: []const u8) !void {
+    pub fn send(
+        self: *Self,
+        sender_id: ?[]const u8,
+        message_type: envlp.MessageType,
+        message: []const u8,
+    ) !void {
         try self.inbox.enqueue(Envelope.init(
-            if (sender) |s| s.ctx.actor_id else null,
-            msg,
+            sender_id,
+            message_type,
+            message,
         ));
+    }
+
+    fn addSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
+        const result = try self.ctx.topic_subscriptions.getOrPut(topic);
+        if (!result.found_existing) {
+            result.value_ptr.* = std.StringHashMap(void).init(self.ctx.topic_subscriptions.allocator);
+        }
+        try result.value_ptr.put(sender_id, {});
     }
 };
 

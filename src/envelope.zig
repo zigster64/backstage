@@ -1,48 +1,64 @@
 const std = @import("std");
 
+pub const MessageType = enum(u8) {
+    send = 0,
+    publish = 1,
+    subscribe = 2,
+    unsubscribe = 3,
+};
+
 pub const Envelope = struct {
-    senderID: ?[]const u8,
+    sender_id: ?[]const u8,
+    message_type: MessageType,
+    message: []const u8,
 
-    payload: []const u8,
-
-    pub fn init(senderID: ?[]const u8, payload: []const u8) Envelope {
+    pub fn init(
+        sender_id: ?[]const u8,
+        message_type: MessageType,
+        message: []const u8,
+    ) Envelope {
         return Envelope{
-            .senderID = senderID,
-            .payload = payload,
+            .sender_id = sender_id,
+            .message_type = message_type,
+            .message = message,
         };
     }
 
     pub fn toBytes(self: *const Envelope, allocator: std.mem.Allocator) ![]u8 {
         const HeaderType = u32;
-        const lenFieldSize = @sizeOf(HeaderType); // 4
-        const idLenSize = @sizeOf(u16); // 2
+        const len_field_size = @sizeOf(HeaderType); // 4
+        const id_len_size = @sizeOf(u16); // 2
 
-        const senderIDLen: usize = if (self.senderID) |idSlice| idSlice.len else 0;
-        const payloadLen: usize = self.payload.len;
+        const sender_id_len: usize = if (self.sender_id) |idSlice| idSlice.len else 0;
+        const envelope_type_len: usize = @sizeOf(MessageType);
+        const payload_len: usize = self.message.len;
 
-        const remainingLen = idLenSize + senderIDLen + payloadLen;
-        const totalSize = lenFieldSize + remainingLen;
+        const remaining_len = id_len_size + sender_id_len + envelope_type_len + payload_len;
+        const total_size = len_field_size + remaining_len;
 
-        var buf: []u8 = try allocator.alloc(u8, totalSize);
+        var buf: []u8 = try allocator.alloc(u8, total_size);
         defer if (false) allocator.free(buf);
 
         var idx: usize = 0;
 
-        std.mem.writeInt(HeaderType, @ptrCast(buf[idx .. idx + lenFieldSize]), @intCast(remainingLen), std.builtin.Endian.big);
-        idx += lenFieldSize;
+        std.mem.writeInt(HeaderType, @ptrCast(buf[idx .. idx + len_field_size]), @intCast(remaining_len), std.builtin.Endian.big);
+        idx += len_field_size;
 
-        std.mem.writeInt(u16, @ptrCast(buf[idx .. idx + idLenSize]), @intCast(senderIDLen), std.builtin.Endian.big);
-        idx += idLenSize;
+        std.mem.writeInt(u16, @ptrCast(buf[idx .. idx + id_len_size]), @intCast(sender_id_len), std.builtin.Endian.big);
+        idx += id_len_size;
 
-        if (self.senderID) |idSlice| {
-            @memcpy(buf[idx .. idx + senderIDLen], idSlice);
-            idx += senderIDLen;
+        if (self.sender_id) |idSlice| {
+            @memcpy(buf[idx .. idx + sender_id_len], idSlice);
+            idx += sender_id_len;
         }
 
-        @memcpy(buf[idx .. idx + payloadLen], self.payload);
-        idx += payloadLen;
+        std.mem.writeInt(u8, @ptrCast(buf[idx .. idx + envelope_type_len]), @intFromEnum(self.message_type), std.builtin.Endian.big);
+        idx += envelope_type_len;
 
-        if (idx != totalSize) {
+        @memcpy(buf[idx .. idx + payload_len], self.message);
+        idx += payload_len;
+
+        if (idx != total_size) {
             return error.UnexpectedFrameSize;
         }
 
@@ -50,39 +66,42 @@ pub const Envelope = struct {
     }
 
     pub fn fromBytes(
-        frameBuf: []const u8,
+        frame_buf: []const u8,
     ) !Envelope {
         const HeaderType = u32;
-        const lenFieldSize = @sizeOf(HeaderType); // 4
-        const idLenSize = @sizeOf(u16); // 2
+        const len_field_size = @sizeOf(HeaderType);
+        const id_len_size = @sizeOf(u16);
 
-        if (frameBuf.len < lenFieldSize + idLenSize) {
+        if (frame_buf.len < len_field_size + id_len_size) {
             return error.TruncatedFrame;
         }
 
-        const lengthMinus4 = std.mem.readInt(HeaderType, @ptrCast(frameBuf[0..lenFieldSize]), std.builtin.Endian.big);
-        if (lengthMinus4 + lenFieldSize != frameBuf.len) {
+        const length_minus_4 = std.mem.readInt(HeaderType, @ptrCast(frame_buf[0..len_field_size]), std.builtin.Endian.big);
+        if (length_minus_4 + len_field_size != frame_buf.len) {
             return error.InvalidLength;
         }
 
-        const rawIDLen = std.mem.readInt(u16, @ptrCast(frameBuf[lenFieldSize .. lenFieldSize + idLenSize]), std.builtin.Endian.big);
-        const senderIDLen = rawIDLen;
+        const raw_id_len = std.mem.readInt(u16, @ptrCast(frame_buf[len_field_size .. len_field_size + id_len_size]), std.builtin.Endian.big);
+        const sender_id_len = raw_id_len;
 
-        if (frameBuf.len < lenFieldSize + idLenSize + senderIDLen) {
+        if (frame_buf.len < len_field_size + id_len_size + sender_id_len) {
             return error.TruncatedFrame;
         }
 
-        var senderID_out: ?[]const u8 = null;
-        if (senderIDLen > 0) {
-            senderID_out = frameBuf[(lenFieldSize + idLenSize)..(lenFieldSize + idLenSize + senderIDLen)];
+        var sender_id_out: ?[]const u8 = null;
+        if (sender_id_len > 0) {
+            sender_id_out = frame_buf[(len_field_size + id_len_size)..(len_field_size + id_len_size + sender_id_len)];
         }
 
-        const payloadStart = lenFieldSize + idLenSize + senderIDLen;
-        const payload_out = frameBuf[payloadStart..];
+        const envelope_type_raw = std.mem.readInt(u8, @ptrCast(frame_buf[len_field_size + id_len_size + sender_id_len .. len_field_size + id_len_size + sender_id_len + @sizeOf(MessageType)]), std.builtin.Endian.big);
+        const message_type: MessageType = @enumFromInt(envelope_type_raw);
+        const payload_start = len_field_size + id_len_size + sender_id_len + @sizeOf(MessageType);
+        const payload_out = frame_buf[payload_start..frame_buf.len];
 
         return Envelope{
-            .senderID = senderID_out,
-            .payload = payload_out,
+            .sender_id = sender_id_out,
+            .message_type = message_type,
+            .message = payload_out,
         };
     }
 };

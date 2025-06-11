@@ -3,11 +3,15 @@ const act = @import("actor.zig");
 const actor_ctx = @import("context.zig");
 const std = @import("std");
 const xev = @import("xev");
+const envlp = @import("envelope.zig");
+const type_utils = @import("type_utils.zig");
 
 const Allocator = std.mem.Allocator;
 const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Context = actor_ctx.Context;
+const MessageType = envlp.MessageType;
+const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorOptions = struct {
     id: []const u8,
@@ -42,10 +46,10 @@ pub const Engine = struct {
         self.registry.deinit();
     }
 
-    pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorInterface {
+    pub fn spawnActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorType {
         const actor = self.registry.getByID(options.id);
         if (actor) |a| {
-            return a;
+            return unsafeAnyOpaqueCast(ActorType, a.impl);
         }
         const actor_interface = try ActorInterface.create(
             self.allocator,
@@ -58,7 +62,7 @@ pub const Engine = struct {
         };
 
         try self.registry.add(options.id, actor_interface);
-        return actor_interface;
+        return unsafeAnyOpaqueCast(ActorType, actor_interface.impl);
     }
     pub fn removeAndCleanupActor(self: *Self, id: []const u8) !void {
         const actor = self.registry.fetchRemove(id);
@@ -68,13 +72,51 @@ pub const Engine = struct {
         }
     }
 
-    pub fn send(self: *Self, sender: ?*ActorInterface, id: []const u8, message: []const u8) !void {
-        const actor = self.registry.getByID(id);
+    pub fn send(
+        self: *Self,
+        sender_id: ?[]const u8,
+        target_id: []const u8,
+        message_type: MessageType,
+        message: []const u8,
+    ) !void {
+        const actor = self.registry.getByID(target_id);
         if (actor) |a| {
-            try a.send(sender, message);
+            try a.send(
+                sender_id,
+                message_type,
+                message,
+            );
         } else {
-            return error.ActorNotFound;
+            std.log.warn("Actor not found: {s}", .{target_id});
         }
+    }
+
+    pub fn subscribeToActorTopic(
+        self: *Self,
+        sender_id: []const u8,
+        target_id: []const u8,
+        topic: []const u8,
+    ) !void {
+        return self.send(
+            sender_id,
+            target_id,
+            .subscribe,
+            topic,
+        );
+    }
+
+    pub fn unsubscribeFromActorTopic(
+        self: *Self,
+        sender_id: []const u8,
+        target_id: []const u8,
+        topic: []const u8,
+    ) !void {
+        return self.send(
+            sender_id,
+            target_id,
+            .unsubscribe,
+            topic,
+        );
     }
 
     pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
