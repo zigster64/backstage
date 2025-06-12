@@ -138,7 +138,6 @@ pub const ActorInterface = struct {
             result.value_ptr.* = std.StringHashMap(void).init(self.ctx.topic_subscriptions.allocator);
         }
         try result.value_ptr.put(sender_id, {});
-        std.log.info("Added subscriber {s} to topic {s} count: {d}", .{ sender_id, topic, self.ctx.topic_subscriptions.count() });
     }
 
     fn removeSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
@@ -147,7 +146,6 @@ pub const ActorInterface = struct {
         if (subscribers.count() == 0) {
             _ = self.ctx.topic_subscriptions.fetchRemove(topic);
         }
-        std.log.info("Removed subscriber {s} from topic {s} count: {d}", .{ sender_id, topic, self.ctx.topic_subscriptions.count() });
     }
 };
 

@@ -39,11 +39,9 @@ pub const Context = struct {
     }
 
     pub fn shutdown(self: *Self) !void {
-        std.log.info("Shutting down context {s}", .{self.actor_id});
         if (self.subscribed_to_actors.count() != 0) {
             var it = self.subscribed_to_actors.iterator();
             while (it.next()) |entry| {
-                std.log.info("Cleaning up subscriptions for actor {s}", .{entry.key_ptr.*});
                 var it2 = entry.value_ptr.keyIterator();
                 while (it2.next()) |topic| {
                     self.engine.unsubscribeFromActorTopic(self.actor_id, entry.key_ptr.*, topic.*) catch |err| {
@@ -65,16 +63,13 @@ pub const Context = struct {
         if (self.child_actors.count() != 0) {
             var it = self.child_actors.valueIterator();
             while (it.next()) |actor| {
-                std.log.info("Deinitializing child actor {s}", .{actor.*.ctx.actor_id});
                 try actor.*.deinitFnPtr(actor.*.impl);
             }
             self.child_actors.deinit();
         }
 
         if (self.parent_actor) |parent| {
-            std.log.info("Detaching child actor {s} from parent {s}", .{ self.actor_id, parent.*.ctx.actor_id });
-            const result = parent.*.ctx.detachChildActor(self.actor);
-            std.log.info("Detached child actor {s} from parent {s} result: {any}", .{ self.actor_id, parent.*.ctx.actor_id, result });
+            _ = parent.*.ctx.detachChildActor(self.actor);
         }
 
         try self.engine.removeAndCleanupActor(self.actor_id);
@@ -109,7 +104,6 @@ pub const Context = struct {
             result.value_ptr.* = std.StringHashMap(void).init(self.allocator);
         }
         try result.value_ptr.put(owned_topic, {});
-        std.log.info("{s} subscribed to {s} topic {s} count: {d}", .{ self.actor_id, owned_target_id, owned_topic, self.subscribed_to_actors.count() });
     }
 
     pub fn unsubscribeFromActor(self: *Self, target_id: []const u8) !void {
@@ -128,7 +122,6 @@ pub const Context = struct {
             }
             actor_map.deinit();
         }
-        std.log.info("{s} unsubscribed from {s} topic {s} count: {d}", .{ self.actor_id, target_id, topic, self.subscribed_to_actors.count() });
     }
 
     pub fn getLoop(self: *const Self) *xev.Loop {
