@@ -19,6 +19,7 @@ pub const Context = struct {
     parent_actor: ?*ActorInterface,
     child_actors: std.StringHashMap(*ActorInterface),
     topic_subscriptions: std.StringHashMap(std.StringHashMap(void)),
+    subscribed_to_topics: std.StringHashMap(std.StringHashMap(void)),
 
     const Self = @This();
     pub fn init(allocator: Allocator, engine: *Engine, actor: *ActorInterface, actor_id: []const u8) !*Self {
@@ -30,6 +31,7 @@ pub const Context = struct {
             .actor = actor,
             .actor_id = actor_id,
             .topic_subscriptions = std.StringHashMap(std.StringHashMap(void)).init(allocator),
+            .subscribed_to_topics = std.StringHashMap(std.StringHashMap(void)).init(allocator),
         };
         return self;
     }
@@ -67,20 +69,27 @@ pub const Context = struct {
             }
         }
     }
-    pub fn subscribeToActor(self: *const Self, target_id: []const u8) !void {
+    pub fn subscribeToActor(self: *Self, target_id: []const u8) !void {
         try self.subscribeToActorTopic(target_id, "default");
     }
 
-    pub fn subscribeToActorTopic(self: *const Self, target_id: []const u8, topic: []const u8) !void {
+    pub fn subscribeToActorTopic(self: *Self, target_id: []const u8, topic: []const u8) !void {
         try self.engine.subscribeToActorTopic(self.actor_id, target_id, topic);
+        const result = try self.subscribed_to_topics.getOrPut(topic);
+        if (!result.found_existing) {
+            result.value_ptr.* = std.StringHashMap(void).init(self.subscribed_to_topics.allocator);
+        }
+        try result.value_ptr.put(target_id, {});
     }
 
-    pub fn unsubscribeFromActor(self: *const Self, target_id: []const u8) !void {
+    pub fn unsubscribeFromActor(self: *Self, target_id: []const u8) !void {
         try self.unsubscribeFromActorTopic(target_id, "default");
     }
 
-    pub fn unsubscribeFromActorTopic(self: *const Self, target_id: []const u8, topic: []const u8) !void {
+    pub fn unsubscribeFromActorTopic(self: *Self, target_id: []const u8, topic: []const u8) !void {
         try self.engine.unsubscribeFromActorTopic(self.actor_id, target_id, topic);
+        var topic_map = self.subscribed_to_topics.get(topic).?;
+        _ = topic_map.remove(target_id);
     }
 
     pub fn getLoop(self: *const Self) *xev.Loop {

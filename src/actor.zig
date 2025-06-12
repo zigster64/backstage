@@ -83,13 +83,12 @@ pub const ActorInterface = struct {
                                 std.log.err("Tried to put topic subscription but failed: {s}", .{@errorName(err)});
                             };
                         },
+                        .unsubscribe => {},
                         .publish => {
                             actor_impl.receive(envelope) catch |err| {
                                 std.log.err("Tried to receive message but failed: {s}", .{@errorName(err)});
                             };
-                            // std.log.info("Received publish message: {s}", .{envelope.message});
                         },
-                        else => {},
                     }
                 }
                 return .disarm;
