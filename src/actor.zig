@@ -83,7 +83,11 @@ pub const ActorInterface = struct {
                                 std.log.err("Tried to put topic subscription but failed: {s}", .{@errorName(err)});
                             };
                         },
-                        .unsubscribe => {},
+                        .unsubscribe => {
+                            actor_interface.removeSubscriber(envelope.message, envelope.sender_id.?) catch |err| {
+                                std.log.err("Tried to remove topic subscription but failed: {s}", .{@errorName(err)});
+                            };
+                        },
                         .publish => {
                             actor_impl.receive(envelope) catch |err| {
                                 std.log.err("Tried to receive message but failed: {s}", .{@errorName(err)});
@@ -127,12 +131,23 @@ pub const ActorInterface = struct {
         ));
     }
 
+    // TODO Who owns the topic and sender_id
     fn addSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
         const result = try self.ctx.topic_subscriptions.getOrPut(topic);
         if (!result.found_existing) {
             result.value_ptr.* = std.StringHashMap(void).init(self.ctx.topic_subscriptions.allocator);
         }
         try result.value_ptr.put(sender_id, {});
+        std.log.info("Added subscriber {s} to topic {s} count: {d}", .{ sender_id, topic, self.ctx.topic_subscriptions.count() });
+    }
+
+    fn removeSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
+        var subscribers = self.ctx.topic_subscriptions.get(topic).?;
+        _ = subscribers.fetchRemove(sender_id);
+        if (subscribers.count() == 0) {
+            _ = self.ctx.topic_subscriptions.fetchRemove(topic);
+        }
+        std.log.info("Removed subscriber {s} from topic {s} count: {d}", .{ sender_id, topic, self.ctx.topic_subscriptions.count() });
     }
 };
 

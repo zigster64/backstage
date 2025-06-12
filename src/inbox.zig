@@ -81,6 +81,7 @@ pub const Inbox = struct {
         }
         const msg_len = std.mem.readInt(usize, &len_bytes, .little);
 
+        // TODO This needs to get freed somewhere
         const msg_buf = try self.allocator.alloc(u8, msg_len);
         var idx: usize = 0;
         while (idx < msg_len) : (idx += 1) {
