@@ -8,6 +8,7 @@ The main goal of this project is to gain deeper understanding of the programming
 - **Actor Lifecycle Management**: Automated actor supervision with parent-child relationships
 - **Memory Efficient**: Careful memory management with configurable inbox capacities
 - **Actor Registry**: Built-in registry for actor discovery and management
+- **Topic-based Messaging**: Publish/subscribe pattern with named topics for decoupled communication
 - **Concurrent programming patterns**: Built to be run on a single core yet handle concurrent workloads
 
 ## Architecture
@@ -19,7 +20,8 @@ The framework consists of several core components:
 - **Context**: Provides actors with access to the engine and manages parent-child relationships
 - **Registry**: Maps actor IDs and message types to actor instances
 - **Inbox**: Thread-safe message queue with configurable capacity
-- **Envelope**: Message wrapper that includes sender information for reply patterns
+- **Envelope**: Message wrapper that includes sender information and message types for routing
+- **Topic Subscriptions**: Decoupled publish/subscribe messaging system
 
 ## Installation
 
@@ -76,7 +78,7 @@ const MyActor = struct {
     }
 
     pub fn deinit(self: *Self) !void {
-        try self.ctx.deinit();
+        try self.ctx.shutdown();
     }
 };
 
@@ -89,26 +91,75 @@ pub fn main() !void {
     var engine = try backstage.Engine.init(allocator);
     defer engine.deinit();
 
-    // Spawn an actor
-    const actor = try engine.spawnActor(MyActor .{
-        .id = "my-actor",
+    // Spawn actors
+    const publisher = try engine.spawnActor(MyActor, .{
+        .id = "publisher",
         .capacity = 1024,
     });
 
-    // Send a message
-    const my_actor_msg = MyActorMessage{ .message = .{
-        .init = .{
-            .example = ManagedString.static("Hello, World!")
-        },
-    } };
+    const subscriber = try engine.spawnActor(MyActor, .{
+        .id = "subscriber",
+        .capacity = 1024,
+    });
 
-    const my_actor_msg_bytes = try update_orderbook_msg.encode(allocator);
-    defer allocator.free(my_actor_msg_bytes);
-    try engine.send(null, "my-actor", my_actor_msg_bytes);
+    // Subscribe to the publisher's default topic
+    try subscriber.ctx.subscribeToActor("publisher");
 
+    // Or subscribe to a specific topic
+    try subscriber.ctx.subscribeToActorTopic("publisher", "news");
+
+    // Publish messages
+    // Normaly you would probably send some more complex encoded struct
+    try publisher.ctx.publish("Hello, subscribers!");
+    try publisher.ctx.publishToTopic("news", "Breaking news!");
+
+    // Send direct messages
+    try engine.send(null, "subscriber", .send, "Direct message");
 
     // Run the event loop
     try engine.run();
+}
+```
+
+### Publishing Messages
+
+```zig
+// Publish to the default topic
+try actor.ctx.publish("Hello, world!");
+
+// Publish to a specific topic
+try actor.ctx.publishToTopic("events", "Something happened!");
+```
+
+### Subscribing to Topics
+
+```zig
+// Subscribe to an actor's default topic
+try subscriber.ctx.subscribeToActor("publisher-id");
+
+// Subscribe to a specific topic from an actor
+try subscriber.ctx.subscribeToActorTopic("publisher-id", "events");
+
+// Unsubscribe from topics
+try subscriber.ctx.unsubscribeFromActor("publisher-id");
+try subscriber.ctx.unsubscribeFromActorTopic("publisher-id", "events");
+```
+
+### Message Handling
+
+Actors receive both direct messages and published messages through the same `receive` method, differentiated by the `message_type` field in the envelope. You could add some logic based on this, but you don't have to:
+
+```zig
+pub fn receive(self: *Self, envelope: Envelope) !void {
+    switch (envelope.message_type) {
+        .send => {
+            // Handle direct point-to-point messages
+        },
+        .publish => {
+            // Handle messages from subscribed topics
+        },
+        else => {},
+    }
 }
 ```
 
@@ -123,31 +174,59 @@ For comprehensive examples and real-world usage, see the [Zigma algorithmic trad
 The `Engine` is the central component that manages the actor system:
 
 - `init(allocator)` - Initialize a new engine instance
-- `spawnActor(ActorType, MsgType, options)` - Create and register a new actor
-- `send(sender, id, message)` - Send a message to a specific actor by ID
-- `broadcast(sender, message)` - Broadcast a message to all actors that handle the message type
+- `spawnActor(ActorType, options)` - Create and register a new actor
+- `send(sender, id, message_type, message)` - Send a message to a specific actor by ID
 - `run()` - Start the event loop
 - `deinit()` - Clean up resources
+
+### Context
+
+The `Context` provides actors with communication and lifecycle management capabilities:
+
+#### Direct Messaging
+- `send(target_id, message)` - Send a direct message to another actor
+
+#### Topic-based Messaging
+- `publish(message)` - Publish a message to the default topic
+- `publishToTopic(topic, message)` - Publish a message to a specific topic
+- `subscribeToActor(target_id)` - Subscribe to another actor's default topic
+- `subscribeToActorTopic(target_id, topic)` - Subscribe to a specific topic from another actor
+- `unsubscribeFromActor(target_id)` - Unsubscribe from another actor's default topic
+- `unsubscribeFromActorTopic(target_id, topic)` - Unsubscribe from a specific topic
+
+#### Actor Management
+- `spawnActor(ActorType, options)` - Spawn a new actor
+- `spawnChildActor(ActorType, options)` - Spawn a child actor with supervision
+- `shutdown()` - Clean shutdown with automatic subscription cleanup
 
 ### Actor Interface
 
 Actors must implement:
 
 - `init(ctx, allocator)` - Actor initialization
-- `receive(envelope)` - Message handling
+- `receive(envelope)` - Message handling for both direct and published messages
 - `deinit()` - Optional cleanup (automatically detected)
+
+### Envelope
+
+Message wrapper containing:
+
+- `sender_id` - ID of the sending actor (optional)
+- `message_type` - Type of message (send, publish, subscribe, unsubscribe)
+- `message` - The actual message payload
 
 ## Design Principles
 
 - **Isolation**: Actors maintain their own state and communicate only through messages
+- **Decoupling**: Topic-based messaging allows loose coupling between actors
 - **Supervision**: Parent actors manage child actor lifecycles
 - **Performance**: Zero-allocation message passing in steady state
 - **Type Safety**: Compile-time message type checking
-- **Resource Management**: Automatic cleanup of actor hierarchies
+- **Resource Management**: Automatic cleanup of actor hierarchies and subscriptions
 
 ## Current Status
 
-This is an early-stage implementation, focusing on core actor framework concepts. The project is primarily meant as a learning exercise and may evolve significantly as understanding of both the language and actor patterns deepens.
+This is an early-stage implementation, focusing on core actor framework concepts with topic-based messaging. The project is primarily meant as a learning exercise and may evolve significantly as understanding of both the language and actor patterns deepens.
 
 ## License
 
