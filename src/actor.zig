@@ -70,6 +70,7 @@ pub const ActorInterface = struct {
                 };
 
                 if (maybe_envelope) |envelope| {
+                    defer envelope.deinit(actor_interface.ctx.allocator);
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(actor_interface.impl)));
 
                     switch (envelope.message_type) {
@@ -79,6 +80,7 @@ pub const ActorInterface = struct {
                             };
                         },
                         .subscribe => {
+                            std.log.info("Adding subscriber for topic {s} from {s}", .{ envelope.message, envelope.sender_id.? });
                             actor_interface.addSubscriber(envelope.message, envelope.sender_id.?) catch |err| {
                                 std.log.err("Tried to put topic subscription but failed: {s}", .{@errorName(err)});
                             };
@@ -142,11 +144,16 @@ pub const ActorInterface = struct {
 
     // TODO Who owns the topic and sender_id
     fn addSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
-        const result = try self.ctx.topic_subscriptions.getOrPut(topic);
+
+        // TODO Need to clone topic if not existent
+        const owned_topic = try self.ctx.allocator.dupe(u8, topic);
+        const owned_sender_id = try self.ctx.allocator.dupe(u8, sender_id);
+        // defer self.ctx.allocator.free(owned_topic);
+        const result = try self.ctx.topic_subscriptions.getOrPut(owned_topic);
         if (!result.found_existing) {
             result.value_ptr.* = std.StringHashMap(void).init(self.ctx.topic_subscriptions.allocator);
         }
-        try result.value_ptr.put(sender_id, {});
+        try result.value_ptr.put(owned_sender_id, {});
     }
 
     fn removeSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {

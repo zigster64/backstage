@@ -45,6 +45,7 @@ pub const Inbox = struct {
     pub fn enqueue(self: *Inbox, envelope: Envelope) !void {
         const header_size = @sizeOf(usize);
         const envelope_bytes = try envelope.toBytes(self.allocator);
+        defer envelope.deinit(self.allocator);
         const msg_len = envelope_bytes.len;
         const total_needed = header_size + msg_len;
 
@@ -81,8 +82,9 @@ pub const Inbox = struct {
         }
         const msg_len = std.mem.readInt(usize, &len_bytes, .little);
 
-        // TODO This needs to get freed somewhere
         const msg_buf = try self.allocator.alloc(u8, msg_len);
+        defer self.allocator.free(msg_buf);
+
         var idx: usize = 0;
         while (idx < msg_len) : (idx += 1) {
             msg_buf[idx] = self.buffer[self.head];
@@ -90,7 +92,7 @@ pub const Inbox = struct {
         }
 
         self.len -= (header_size + msg_len);
-        return try Envelope.fromBytes(msg_buf);
+        return try Envelope.fromBytes(self.allocator, msg_buf);
     }
 
     fn grow(self: *Inbox, new_cap: usize) !void {
