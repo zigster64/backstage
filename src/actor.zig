@@ -122,13 +122,22 @@ pub const ActorInterface = struct {
         self: *Self,
         sender_id: ?[]const u8,
         message_type: envlp.MessageType,
-        message: []const u8,
+        message: anytype,
     ) !void {
-        try self.inbox.enqueue(Envelope.init(
-            sender_id,
-            message_type,
-            message,
-        ));
+        const T = @TypeOf(message);
+        switch (@typeInfo(T)) {
+            .pointer => |ptr| if (ptr.child != u8) @compileError("Only []const u8 supported"),
+            .@"struct" => if (!comptime type_utils.hasMethod(T, "encode")) @compileError("Struct must have encode() method"),
+            else => @compileError("Message must be []const u8 or protobuf struct"),
+        }
+
+        if (@typeInfo(T) == .@"struct") {
+            const encoded = try message.encode(self.ctx.allocator);
+            defer self.ctx.allocator.free(encoded);
+            try self.inbox.enqueue(Envelope.init(sender_id, message_type, encoded));
+        } else {
+            try self.inbox.enqueue(Envelope.init(sender_id, message_type, message));
+        }
     }
 
     // TODO Who owns the topic and sender_id

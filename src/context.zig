@@ -75,15 +75,15 @@ pub const Context = struct {
         try self.engine.removeAndCleanupActor(self.actor_id);
     }
 
-    pub fn send(self: *const Self, target_id: []const u8, message: []const u8) !void {
+    pub fn send(self: *const Self, target_id: []const u8, message: anytype) !void {
         try self.engine.send(self.actor_id, target_id, .send, message);
     }
 
-    pub fn publish(self: *const Self, message: []const u8) !void {
+    pub fn publish(self: *const Self, message: anytype) !void {
         try self.publishToTopic("default", message);
     }
 
-    pub fn publishToTopic(self: *const Self, topic: []const u8, message: []const u8) !void {
+    pub fn publishToTopic(self: *const Self, topic: []const u8, message: anytype) !void {
         if (self.topic_subscriptions.get(topic)) |subscribers| {
             var it = subscribers.keyIterator();
             while (it.next()) |id| {

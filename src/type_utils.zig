@@ -55,3 +55,16 @@ pub fn getActiveTypeName(message: anytype) []const u8 {
         else => @compileError("Type must be a struct or union"),
     };
 }
+pub fn hasMethod(comptime T: type, comptime method_name: []const u8) bool {
+    const type_info = @typeInfo(T);
+    if (type_info != .@"struct") return false;
+
+    inline for (type_info.@"struct".decls) |decl| {
+        if (std.mem.eql(u8, decl.name, method_name)) {
+            const field = @field(T, decl.name);
+            const field_type = @TypeOf(field);
+            return @typeInfo(field_type) == .@"fn";
+        }
+    }
+    return false;
+}

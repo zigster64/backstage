@@ -77,7 +77,7 @@ pub const Engine = struct {
         sender_id: ?[]const u8,
         target_id: []const u8,
         message_type: MessageType,
-        message: []const u8,
+        message: anytype,
     ) !void {
         const actor = self.registry.getByID(target_id);
         if (actor) |a| {
