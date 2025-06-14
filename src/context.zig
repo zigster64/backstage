@@ -19,6 +19,7 @@ pub const Context = struct {
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
     child_actors: std.StringHashMap(*ActorInterface),
+    timer_completions: std.ArrayList(*xev.Completion),
 
     // This is who is subscribed to this actor stored as topic:sender_id
     topic_subscriptions: std.StringHashMap(std.StringHashMap(void)),
@@ -38,11 +39,24 @@ pub const Context = struct {
             .actor_id = actor_id,
             .topic_subscriptions = std.StringHashMap(std.StringHashMap(void)).init(allocator),
             .subscribed_to_actors = std.StringHashMap(std.StringHashMap(void)).init(allocator),
+            .timer_completions = std.ArrayList(*xev.Completion).init(allocator),
         };
         return self;
     }
 
     pub fn shutdown(self: *Self) !void {
+        for (self.timer_completions.items) |completion| {
+            var cancel_completion: xev.Completion = .{
+                .op = .{
+                    .cancel = .{
+                        .c = completion,
+                    },
+                },
+            };
+            self.engine.loop.add(&cancel_completion);
+        }
+        self.timer_completions.deinit();
+
         if (self.subscribed_to_actors.count() != 0) {
             var it = self.subscribed_to_actors.iterator();
             while (it.next()) |entry| {
@@ -120,7 +134,6 @@ pub const Context = struct {
         const owned_topic = try self.allocator.dupe(u8, topic);
         try topics.?.put(owned_topic, {});
 
-        std.log.info("Subscribing to actor topic {s} for {s}", .{ topic, target_id });
         try self.engine.subscribeToActorTopic(self.actor_id, target_id, topic);
     }
 
@@ -151,15 +164,16 @@ pub const Context = struct {
         return &self.engine.loop;
     }
 
-    // TODO Wrap this in a struct so that it can be properly disposed
-    pub fn runContinuously(
+    pub fn runRecurring(
         self: *Self,
         comptime ActorType: type,
         comptime callback_fn: anytype,
-        completion: *xev.Completion,
         userdata: ?*anyopaque,
         comptime delay_ms: u64,
     ) !void {
+        const completion = try self.allocator.create(xev.Completion);
+        try self.timer_completions.append(completion);
+
         const callback = struct {
             fn inner(
                 ud: ?*anyopaque,
