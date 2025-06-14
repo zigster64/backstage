@@ -65,6 +65,7 @@ const MyActor = struct {
     }
 
     pub fn receive(self: *Self(), envelope: Envelope) !void {
+        defer envelope.deinit(self.allocator);
         // This example shows zig-protobuf encoded payloads, any encoding (or none at all) would work
         const actor_msg: MyActorMessage = try MyActorMessage.decode(message.payload, self.allocator);
         if (actor_msg.message == null) {
@@ -109,13 +110,20 @@ pub fn main() !void {
     try subscriber.ctx.subscribeToActorTopic("publisher", "news");
 
     // Publish messages
-    // Normaly you would probably send some more complex encoded struct
+    // Normaly you would probably send some more complex encoded struct, it is able 
+    // to handle structs that have a method with the following signature:
+    // pub fn encode(self: Self, allocator: Allocator) anyerror![]u8
     try publisher.ctx.publish("Hello, subscribers!");
     try publisher.ctx.publishToTopic("news", "Breaking news!");
+    try publisher.ctx.publishToTopic("news", MyActorMessage{
+        .message = .{ .input = "Hello, World!" },
+    });
 
     // Send direct messages
-    try engine.send(null, "subscriber", .send, "Direct message");
-
+    try engine.send(null, "subscriber", "Direct message");
+    try engine.send(null, "subscriber", MyActorMessage{
+        .message = .{ .input = "Hello, World!" },
+    });
     // Run the event loop
     try engine.run();
 }
