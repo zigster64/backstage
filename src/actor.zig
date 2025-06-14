@@ -15,6 +15,7 @@ const ActorOptions = eng.ActorOptions;
 const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorInterface = struct {
+    allocator: Allocator,
     impl: *anyopaque,
     inbox: *Inbox,
     ctx: *Context,
@@ -33,6 +34,7 @@ pub const ActorInterface = struct {
     ) !*Self {
         const self = try allocator.create(Self);
         self.* = .{
+            .allocator = allocator,
             .arena_state = std.heap.ArenaAllocator.init(allocator),
             .deinitFnPtr = makeTypeErasedDeinitFn(ActorType),
             .inbox = undefined,
@@ -64,13 +66,12 @@ pub const ActorInterface = struct {
             ) xev.CallbackAction {
                 const actor_interface: *Self = unsafeAnyOpaqueCast(Self, ud);
 
-                const maybe_envelope = actor_interface.inbox.dequeue() catch |err| {
+                const maybe_envelope = actor_interface.inbox.dequeue(actor_interface.allocator) catch |err| {
                     std.log.err("Tried to dequeue from inbox but failed: {s}", .{@errorName(err)});
                     return .disarm;
                 };
 
                 if (maybe_envelope) |envelope| {
-                    defer envelope.deinit(actor_interface.ctx.allocator);
                     const actor_impl = @as(*ActorType, @ptrCast(@alignCast(actor_interface.impl)));
 
                     switch (envelope.message_type) {
@@ -80,13 +81,12 @@ pub const ActorInterface = struct {
                             };
                         },
                         .subscribe => {
-                            std.log.info("Adding subscriber for topic {s} from {s}", .{ envelope.message, envelope.sender_id.? });
-                            actor_interface.addSubscriber(envelope.message, envelope.sender_id.?) catch |err| {
+                            actor_interface.addSubscriber(envelope) catch |err| {
                                 std.log.err("Tried to put topic subscription but failed: {s}", .{@errorName(err)});
                             };
                         },
                         .unsubscribe => {
-                            actor_interface.removeSubscriber(envelope.message, envelope.sender_id.?) catch |err| {
+                            actor_interface.removeSubscriber(envelope) catch |err| {
                                 std.log.err("Tried to remove topic subscription but failed: {s}", .{@errorName(err)});
                             };
                         },
@@ -120,47 +120,39 @@ pub const ActorInterface = struct {
         self.arena_state.deinit();
     }
 
-    pub fn send(
-        self: *Self,
-        sender_id: ?[]const u8,
-        message_type: envlp.MessageType,
-        message: anytype,
-    ) !void {
-        const T = @TypeOf(message);
-        switch (@typeInfo(T)) {
-            .pointer => |ptr| if (ptr.child != u8) @compileError("Only []const u8 supported"),
-            .@"struct" => if (!comptime type_utils.hasMethod(T, "encode")) @compileError("Struct must have encode() method"),
-            else => @compileError("Message must be []const u8 or protobuf struct"),
+    fn addSubscriber(self: *Self, envelope: Envelope) !void {
+        defer envelope.deinit(self.allocator);
+        if (envelope.sender_id == null) {
+            return error.SenderIdIsRequired;
         }
-
-        if (@typeInfo(T) == .@"struct") {
-            const encoded = try message.encode(self.ctx.allocator);
-            defer self.ctx.allocator.free(encoded);
-            try self.inbox.enqueue(Envelope.init(sender_id, message_type, encoded));
-        } else {
-            try self.inbox.enqueue(Envelope.init(sender_id, message_type, message));
+        var subscribers = self.ctx.topic_subscriptions.getPtr(envelope.message);
+        if (subscribers == null) {
+            const owned_topic = try self.allocator.dupe(u8, envelope.message);
+            try self.ctx.topic_subscriptions.put(owned_topic, std.StringHashMap(void).init(self.allocator));
+            subscribers = self.ctx.topic_subscriptions.getPtr(owned_topic);
         }
+        if (subscribers.?.get(envelope.sender_id.?) != null) {
+            return;
+        }
+        const owned_sender_id = try self.allocator.dupe(u8, envelope.sender_id.?);
+        try subscribers.?.put(owned_sender_id, {});
     }
 
-    // TODO Who owns the topic and sender_id
-    fn addSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
+    fn removeSubscriber(self: *Self, envelope: Envelope) !void {
+        defer envelope.deinit(self.allocator);
 
-        // TODO Need to clone topic if not existent
-        const owned_topic = try self.ctx.allocator.dupe(u8, topic);
-        const owned_sender_id = try self.ctx.allocator.dupe(u8, sender_id);
-        // defer self.ctx.allocator.free(owned_topic);
-        const result = try self.ctx.topic_subscriptions.getOrPut(owned_topic);
-        if (!result.found_existing) {
-            result.value_ptr.* = std.StringHashMap(void).init(self.ctx.topic_subscriptions.allocator);
+        var subscribers = self.ctx.topic_subscriptions.get(envelope.message);
+        if (subscribers == null) {
+            return error.TopicDoesNotExist;
         }
-        try result.value_ptr.put(owned_sender_id, {});
-    }
-
-    fn removeSubscriber(self: *Self, topic: []const u8, sender_id: []const u8) !void {
-        var subscribers = self.ctx.topic_subscriptions.get(topic).?;
-        _ = subscribers.fetchRemove(sender_id);
-        if (subscribers.count() == 0) {
-            _ = self.ctx.topic_subscriptions.fetchRemove(topic);
+        if (subscribers.?.fetchRemove(envelope.sender_id.?)) |owned_sender_id| {
+            self.allocator.free(owned_sender_id.key);
+        }
+        if (subscribers.?.count() == 0) {
+            if (self.ctx.topic_subscriptions.fetchRemove(envelope.message)) |owned_topic| {
+                self.allocator.free(owned_topic.key);
+            }
+            subscribers.?.deinit();
         }
     }
 };

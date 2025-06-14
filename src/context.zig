@@ -19,7 +19,11 @@ pub const Context = struct {
     actor: *ActorInterface,
     parent_actor: ?*ActorInterface,
     child_actors: std.StringHashMap(*ActorInterface),
+
+    // This is who is subscribed to this actor stored as topic:sender_id
     topic_subscriptions: std.StringHashMap(std.StringHashMap(void)),
+
+    // This is who this actor is subscribed to stored as target_id:topic
     subscribed_to_actors: std.StringHashMap(std.StringHashMap(void)),
 
     const Self = @This();
@@ -76,7 +80,11 @@ pub const Context = struct {
     }
 
     pub fn send(self: *const Self, target_id: []const u8, message: anytype) !void {
-        try self.engine.send(self.actor_id, target_id, .send, message);
+        try self.engine.send(
+            self.actor_id,
+            target_id,
+            message,
+        );
     }
 
     pub fn publish(self: *const Self, message: anytype) !void {
@@ -87,7 +95,11 @@ pub const Context = struct {
         if (self.topic_subscriptions.get(topic)) |subscribers| {
             var it = subscribers.keyIterator();
             while (it.next()) |id| {
-                try self.engine.send(self.actor_id, id.*, .publish, message);
+                try self.engine.publish(
+                    self.actor_id,
+                    id.*,
+                    message,
+                );
             }
         }
     }
@@ -96,14 +108,20 @@ pub const Context = struct {
     }
 
     pub fn subscribeToActorTopic(self: *Self, target_id: []const u8, topic: []const u8) !void {
-        const owned_target_id = try self.allocator.dupe(u8, target_id);
-        const owned_topic = try self.allocator.dupe(u8, topic);
-        try self.engine.subscribeToActorTopic(self.actor_id, owned_target_id, owned_topic);
-        const result = try self.subscribed_to_actors.getOrPut(owned_target_id);
-        if (!result.found_existing) {
-            result.value_ptr.* = std.StringHashMap(void).init(self.allocator);
+        var topics = self.subscribed_to_actors.getPtr(target_id);
+        if (topics == null) {
+            const owned_target_id = try self.allocator.dupe(u8, target_id);
+            try self.subscribed_to_actors.put(owned_target_id, std.StringHashMap(void).init(self.allocator));
+            topics = self.subscribed_to_actors.getPtr(owned_target_id);
         }
-        try result.value_ptr.put(owned_topic, {});
+        if (topics.?.get(topic) != null) {
+            return;
+        }
+        const owned_topic = try self.allocator.dupe(u8, topic);
+        try topics.?.put(owned_topic, {});
+
+        std.log.info("Subscribing to actor topic {s} for {s}", .{ topic, target_id });
+        try self.engine.subscribeToActorTopic(self.actor_id, target_id, topic);
     }
 
     pub fn unsubscribeFromActor(self: *Self, target_id: []const u8) !void {
@@ -112,15 +130,20 @@ pub const Context = struct {
 
     pub fn unsubscribeFromActorTopic(self: *Self, target_id: []const u8, topic: []const u8) !void {
         try self.engine.unsubscribeFromActorTopic(self.actor_id, target_id, topic);
-        var actor_map = self.subscribed_to_actors.get(target_id).?;
-        if (actor_map.fetchRemove(topic)) |owned_topic| {
+        var topics = self.subscribed_to_actors.get(target_id);
+        if (topics == null) {
+            return error.TargetIdDoesNotExist;
+        }
+
+        if (topics.?.fetchRemove(topic)) |owned_topic| {
             self.allocator.free(owned_topic.key);
         }
-        if (actor_map.count() == 0) {
+
+        if (topics.?.count() == 0) {
             if (self.subscribed_to_actors.fetchRemove(target_id)) |owned_target_id| {
                 self.allocator.free(owned_target_id.key);
             }
-            actor_map.deinit();
+            topics.?.deinit();
         }
     }
 
@@ -166,7 +189,6 @@ pub const Context = struct {
     pub fn spawnChildActor(self: *Self, comptime ActorType: type, options: ActorOptions) !*ActorType {
         const actor_impl = try self.engine.spawnActor(ActorType, options);
         actor_impl.ctx.parent_actor = self.actor;
-        // TODO Find a way to make this work again
         try self.child_actors.put(options.id, actor_impl.ctx.actor);
         return actor_impl;
     }

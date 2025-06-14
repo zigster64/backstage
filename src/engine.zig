@@ -11,6 +11,7 @@ const Registry = reg.Registry;
 const ActorInterface = act.ActorInterface;
 const Context = actor_ctx.Context;
 const MessageType = envlp.MessageType;
+const Envelope = envlp.Envelope;
 const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
 pub const ActorOptions = struct {
@@ -76,19 +77,27 @@ pub const Engine = struct {
         self: *Self,
         sender_id: ?[]const u8,
         target_id: []const u8,
-        message_type: MessageType,
         message: anytype,
     ) !void {
-        const actor = self.registry.getByID(target_id);
-        if (actor) |a| {
-            try a.send(
-                sender_id,
-                message_type,
-                message,
-            );
-        } else {
-            std.log.warn("Actor not found: {s}", .{target_id});
-        }
+        return self.enqueueMessage(
+            sender_id,
+            target_id,
+            .send,
+            message,
+        );
+    }
+    pub fn publish(
+        self: *Self,
+        sender_id: ?[]const u8,
+        target_id: []const u8,
+        message: anytype,
+    ) !void {
+        return self.enqueueMessage(
+            sender_id,
+            target_id,
+            .publish,
+            message,
+        );
     }
 
     pub fn subscribeToActorTopic(
@@ -97,7 +106,7 @@ pub const Engine = struct {
         target_id: []const u8,
         topic: []const u8,
     ) !void {
-        return self.send(
+        return self.enqueueMessage(
             sender_id,
             target_id,
             .subscribe,
@@ -111,7 +120,7 @@ pub const Engine = struct {
         target_id: []const u8,
         topic: []const u8,
     ) !void {
-        return self.send(
+        return self.enqueueMessage(
             sender_id,
             target_id,
             .unsubscribe,
@@ -119,11 +128,43 @@ pub const Engine = struct {
         );
     }
 
-    pub fn request(self: *Engine, sender: ?*const ActorInterface, id: []const u8, original_message: anytype, comptime ResultType: type) !ResultType {
-        // Needs to be reimplemented
-        _ = sender;
-        _ = id;
-        _ = original_message;
-        _ = self;
+    fn enqueueMessage(
+        self: *Self,
+        sender_id: ?[]const u8,
+        target_id: []const u8,
+        message_type: MessageType,
+        message: anytype,
+    ) !void {
+        const actor = self.registry.getByID(target_id);
+        if (actor) |a| {
+            const T = @TypeOf(message);
+            switch (@typeInfo(T)) {
+                .pointer => |ptr| if (ptr.child != u8) @compileError("Only []const u8 supported"),
+                .@"struct" => if (!comptime type_utils.hasMethod(T, "encode")) @compileError("Struct must have encode() method"),
+                else => @compileError("Message must be []const u8 or protobuf struct"),
+            }
+
+            if (@typeInfo(T) == .@"struct") {
+                const encoded = try message.encode(self.allocator);
+                defer self.allocator.free(encoded);
+                const envelope = Envelope.init(
+                    sender_id,
+                    message_type,
+                    encoded,
+                );
+                defer envelope.deinit(self.allocator);
+                try a.inbox.enqueue(try envelope.toBytes(self.allocator));
+            } else {
+                const envelope = Envelope.init(
+                    sender_id,
+                    message_type,
+                    message,
+                );
+                defer envelope.deinit(self.allocator);
+                try a.inbox.enqueue(try envelope.toBytes(self.allocator));
+            }
+        } else {
+            std.log.warn("Actor not found: {s}", .{target_id});
+        }
     }
 };
