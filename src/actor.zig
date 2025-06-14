@@ -14,6 +14,9 @@ const Envelope = envlp.Envelope;
 const ActorOptions = eng.ActorOptions;
 const unsafeAnyOpaqueCast = type_utils.unsafeAnyOpaqueCast;
 
+// TODO This is a bit of a hack, storing it on the stack causes a segfault when the actor is destroyed
+var cancel_completion: xev.Completion = undefined;
+
 pub const ActorInterface = struct {
     allocator: Allocator,
     impl: *anyopaque,
@@ -118,6 +121,32 @@ pub const ActorInterface = struct {
     pub fn cleanupFrameworkResources(self: *Self) void {
         self.inbox.deinit();
         self.arena_state.deinit();
+        if (self.completion.op == .noop) {
+            self.allocator.destroy(self);
+            return;
+        }
+        cancel_completion = .{
+            .op = .{
+                .cancel = .{
+                    .c = &self.completion,
+                },
+            },
+            .userdata = @ptrCast(self),
+            .callback = (struct {
+                fn callback(
+                    self_: ?*anyopaque,
+                    _: *xev.Loop,
+                    _: *xev.Completion,
+                    r: xev.Result,
+                ) xev.CallbackAction {
+                    _ = r.cancel catch unreachable;
+                    const inner_self: *Self = unsafeAnyOpaqueCast(Self, self_);
+                    inner_self.allocator.destroy(inner_self);
+                    return .disarm;
+                }
+            }).callback,
+        };
+        self.ctx.engine.loop.add(&cancel_completion);
     }
 
     fn addSubscriber(self: *Self, envelope: Envelope) !void {

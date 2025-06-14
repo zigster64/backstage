@@ -69,7 +69,6 @@ pub const Engine = struct {
         const actor = self.registry.fetchRemove(id);
         if (actor) |a| {
             a.cleanupFrameworkResources();
-            self.allocator.destroy(a);
         }
     }
 
