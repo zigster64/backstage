@@ -24,6 +24,7 @@ pub const ActorInterface = struct {
     ctx: *Context,
     completion: xev.Completion = undefined,
     arena_state: std.heap.ArenaAllocator,
+    is_shutting_down: bool = false,
 
     deinitFnPtr: *const fn (ptr: *anyopaque) anyerror!void,
 
@@ -110,6 +111,10 @@ pub const ActorInterface = struct {
                 c: *xev.Completion,
                 r: xev.Result,
             ) xev.CallbackAction {
+                const inner_self: *Self = unsafeAnyOpaqueCast(Self, ud);
+                if (inner_self.is_shutting_down) {
+                    return .disarm;
+                }
                 _ = listenForMessagesFn(ud, loop, c, r);
                 loop.timer(c, 0, ud, inner);
                 return .disarm;
@@ -119,6 +124,7 @@ pub const ActorInterface = struct {
     }
 
     pub fn cleanupFrameworkResources(self: *Self) void {
+        self.is_shutting_down = true;
         self.inbox.deinit();
         self.arena_state.deinit();
         if (self.completion.op == .noop) {
