@@ -54,7 +54,7 @@ pub const ActorInterface = struct {
         );
         self.ctx = ctx;
         self.impl = try ActorType.init(ctx, self.arena_state.allocator());
-        self.inbox = try Inbox.init(self.arena_state.allocator(), options.capacity);
+        self.inbox = try Inbox.init(self.allocator, options.capacity);
 
         try self.listenForMessages(ActorType);
 
@@ -70,7 +70,7 @@ pub const ActorInterface = struct {
             ) xev.CallbackAction {
                 const actor_interface: *Self = unsafeAnyOpaqueCast(Self, ud);
 
-                const maybe_envelope = actor_interface.inbox.dequeue(actor_interface.allocator) catch |err| {
+                const maybe_envelope = actor_interface.inbox.dequeue() catch |err| {
                     std.log.err("Tried to dequeue from inbox but failed: {s}", .{@errorName(err)});
                     return .disarm;
                 };

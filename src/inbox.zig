@@ -66,7 +66,7 @@ pub const Inbox = struct {
         self.len += total_needed;
     }
 
-    pub fn dequeue(self: *Inbox, allocator: std.mem.Allocator) !?Envelope {
+    pub fn dequeue(self: *Inbox) !?Envelope {
         if (self.isEmpty()) {
             return null;
         }
@@ -90,7 +90,7 @@ pub const Inbox = struct {
         }
 
         self.len -= (header_size + msg_len);
-        return try Envelope.fromBytes(allocator, msg_buf);
+        return try Envelope.fromBytes(self.allocator, msg_buf);
     }
 
     fn grow(self: *Inbox, new_cap: usize) !void {
